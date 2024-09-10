@@ -19,21 +19,32 @@ const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 const Component = () => {
   const mapContainer = React.useRef(null);
 
-  // Function to fetch locations from Airtable
+  // Function to fetch locations from Airtable with pagination handling
   const fetchLocations = async () => {
+    let allRecords = [];
+    let offset = null;
+
     try {
-      const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}`, {
-        headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`
-        }
-      });
-      const data = await response.json();
-      console.log('Fetched locations from Airtable:', data.records);
-      return data.records;
+      do {
+        const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}${offset ? `&offset=${offset}` : ''}`;
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${AIRTABLE_API_KEY}`
+          }
+        });
+
+        const data = await response.json();
+        allRecords = [...allRecords, ...data.records];
+
+        // If there's more data to fetch, Airtable will return an offset
+        offset = data.offset;
+      } while (offset); // Continue fetching until there's no offset
     } catch (error) {
       console.error("Error fetching data from Airtable:", error);
-      return [];
     }
+
+    console.log('Fetched all locations from Airtable:', allRecords);
+    return allRecords;
   };
 
   // Initialize the map and fetch locations on component mount
