@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import mapboxgl from 'mapbox-gl';
 import mapboxSdk from '@mapbox/mapbox-sdk/services/geocoding';
+import Modal from 'react-modal';
 import styles from "../styles/style.module.css";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -16,8 +17,25 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEyc
 // Initialize the Mapbox geocoding client
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
+// Modal setup
+Modal.setAppElement('#root');
+
 const Component = () => {
   const mapContainer = React.useRef(null);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+
+  // Function to open the modal with data
+  const openModal = (location) => {
+    setSelectedLocation(location);
+    setModalIsOpen(true);
+  };
+
+  // Function to close the modal
+  const closeModal = () => {
+    setModalIsOpen(false);
+    setSelectedLocation(null);
+  };
 
   // Function to fetch locations from Airtable with pagination handling
   const fetchLocations = async () => {
@@ -43,7 +61,6 @@ const Component = () => {
       console.error("Error fetching data from Airtable:", error);
     }
 
-    console.log('Fetched all locations from Airtable:', allRecords);
     return allRecords;
   };
 
@@ -66,6 +83,8 @@ const Component = () => {
       for (const location of locations) {
         const address = location.fields['Full Address'];
         const name = location.fields['Location Name'];
+        const isPremium = location.fields['isPremium'];
+        const pinColor = isPremium ? 'gold' : 'red';
 
         try {
           const response = await mapboxClient
@@ -88,13 +107,20 @@ const Component = () => {
 
           const feature = response.body.features[0];
           const coords = feature.center;
-          console.log(`Geocoded ${address}:`, coords);
 
           // Add marker to the map
-          new mapboxgl.Marker()
+          const markerEl = document.createElement('div');
+          markerEl.style.backgroundColor = pinColor;
+          markerEl.style.width = '20px';
+          markerEl.style.height = '20px';
+          markerEl.style.borderRadius = '50%';
+
+          const marker = new mapboxgl.Marker({ element: markerEl })
             .setLngLat(coords)
-            .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
             .addTo(map);
+
+          // Open modal when marker is clicked
+          marker.getElement().addEventListener('click', () => openModal(location));
 
           // Extend map bounds to include this marker
           bounds.extend(coords);
@@ -115,7 +141,27 @@ const Component = () => {
   }, []);
 
   return (
-    <div ref={mapContainer} className={styles.mapContainer} />
+    <div>
+      <div ref={mapContainer} className={styles.mapContainer} />
+
+      {/* Modal for displaying additional location details */}
+      {selectedLocation && (
+        <Modal
+          isOpen={modalIsOpen}
+          onRequestClose={closeModal}
+          contentLabel="Location Details"
+          className={styles.modalContent}
+          overlayClassName={styles.modalOverlay}
+        >
+          <h2>{selectedLocation.fields['Location Name']}</h2>
+          <p><strong>Full Address:</strong> {selectedLocation.fields['Full Address']}</p>
+          <p><strong>Website:</strong> <a href={selectedLocation.fields['Website']} target="_blank" rel="noopener noreferrer">{selectedLocation.fields['Website']}</a></p>
+          <p><strong>Instructor:</strong> {selectedLocation.fields['Instructor']}</p>
+          <p><strong>Phone Number:</strong> {selectedLocation.fields['Phone Number']}</p>
+          <button onClick={closeModal}>Close</button>
+        </Modal>
+      )}
+    </div>
   );
 };
 
