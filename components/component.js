@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import mapboxgl from 'mapbox-gl';
-import mapboxSdk from '@mapbox/mapbox-sdk'; // Import the Mapbox SDK for geocoding
+import mapboxSdk from '@mapbox/mapbox-sdk/services/geocoding'; // Import the geocoding service from Mapbox SDK
 import styles from "../styles/style.module.css";
 
 // Airtable setup
@@ -11,7 +11,7 @@ const AIRTABLE_TABLE_NAME = 'Locations';
 // Mapbox access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
 
-// Initialize the Mapbox client
+// Initialize the Mapbox geocoding client
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
 const Component = () => {
@@ -37,7 +37,7 @@ const Component = () => {
   // Function to geocode address using Mapbox SDK and get coordinates
   const geocodeAddress = async (address) => {
     try {
-      const response = await mapboxClient.geocoding
+      const response = await mapboxClient
         .forwardGeocode({
           query: address,
           autocomplete: false,
