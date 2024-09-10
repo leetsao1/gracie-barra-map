@@ -38,10 +38,10 @@ const Component = () => {
 
     do {
       const response = await fetch(
-        `https://api.airtable.com/v0/YOUR_BASE_ID/Locations?view=YOUR_VIEW_NAME&offset=${offset}`,
-        {
-          headers: {
-            Authorization: `Bearer YOUR_AIRTABLE_API_KEY`,
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}&offset=${offset}`,
+      {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
           },
         }
       );
