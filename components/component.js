@@ -36,5 +36,5 @@ const Component = () => {
   );
 };
 
-export
+export default Component;
  
