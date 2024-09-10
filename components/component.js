@@ -93,6 +93,8 @@ const Component = () => {
             .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
             .addTo(map);
           
+          console.log(`Marker added at: ${coords} for location: ${name}`);
+
           // Extend map bounds to include this marker
           bounds.extend(coords);
           hasValidCoords = true; // Found at least one valid marker
