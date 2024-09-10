@@ -72,9 +72,10 @@ const Component = () => {
       // Fetch locations from Airtable
       const locations = await fetchLocations();
       const bounds = new mapboxgl.LngLatBounds();
+      let hasValidCoords = false; // Track if at least one valid marker exists
 
       // Loop through locations and add them as markers to the map
-      locations.forEach(async (location) => {
+      for (const location of locations) {
         const address = location.fields['Full Address'];
         const name = location.fields['Location Name'];
 
@@ -88,13 +89,16 @@ const Component = () => {
           
           // Extend map bounds to include this marker
           bounds.extend([coords.lng, coords.lat]);
+          hasValidCoords = true; // Found at least one valid marker
         } else {
           console.warn(`Could not geocode address: ${address}`);
         }
-      });
+      }
 
-      // Adjust the map to fit all markers
-      map.fitBounds(bounds, { padding: 50 });
+      // Adjust the map to fit all markers only if we have valid coordinates
+      if (hasValidCoords) {
+        map.fitBounds(bounds, { padding: 50 });
+      }
 
       return () => map.remove(); // Cleanup map on component unmount
     };
