@@ -1,4 +1,3 @@
-```javascript
 import React, { useEffect } from "react";
 import mapboxgl from 'mapbox-gl';
 import styles from "../styles/style.module.css";
@@ -38,3 +37,4 @@ const Component = () => {
 };
 
 export
+ 
