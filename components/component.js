@@ -14,121 +14,202 @@ const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 // Mapbox access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
 
-
-// Initialize the Mapbox geocoding client
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
+
+const radiusOptions = [
+  { value: 10, label: '10 miles' },
+  { value: 25, label: '25 miles' },
+  { value: 50, label: '50 miles' },
+  { value: 100, label: '100 miles' },
+  { value: 'any', label: 'Any distance' },
+];
+
+// Haversine formula to calculate distance between two latitude/longitude points
+function haversineDistance(coords1, coords2) {
+  const [lon1, lat1] = coords1;
+  const [lon2, lat2] = coords2;
+
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180; // φ, λ in radians
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distanceInMeters = R * c; // in meters
+  return distanceInMeters / 1609.34; // Convert meters to miles
+}
 
 const Component = () => {
   const mapContainer = React.useRef(null);
-  const [error, setError] = useState(null);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [modalData, setModalData] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [searchAddress, setSearchAddress] = useState('');
+  const [searchRadius, setSearchRadius] = useState(50);
+  const [locations, setLocations] = useState([]);
 
-  // Function to fetch locations from Airtable with pagination handling
+  // Function to fetch locations from Airtable with pagination
   const fetchLocations = async () => {
-    const allRecords = [];
-    let offset = '';
+    let allRecords = [];
+    let offset = null;
 
-    do {
-      try {
+    try {
+      do {
         const response = await fetch(
-          `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}&offset=${offset}`,
-          {
-            headers: {
-              Authorization: `Bearer ${AIRTABLE_API_KEY}`
-            }
+          `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}${offset ? `&offset=${offset}` : ''}`, {
+          headers: {
+            Authorization: `Bearer ${AIRTABLE_API_KEY}`
           }
-        );
-        const data = await response.json();
-        allRecords.push(...data.records);
-        offset = data.offset || '';
-      } catch (err) {
-        console.error('Error fetching data from Airtable:', err);
-        setError('Error fetching data from Airtable');
-      }
-    } while (offset);
+        });
 
-    return allRecords;
+        const data = await response.json();
+        allRecords = [...allRecords, ...data.records];
+        offset = data.offset;
+
+      } while (offset);
+
+      console.log('Fetched locations from Airtable:', allRecords);
+      return allRecords;
+
+    } catch (error) {
+      console.error("Error fetching data from Airtable:", error);
+      return [];
+    }
   };
 
-  // Initialize the map and fetch locations on component mount
-  useEffect(() => {
-    const initMap = async () => {
-      const map = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-98.5795, 39.8283], // Set initial center to US
-        zoom: 4 // Set zoom level for better visibility
+  const openModal = (data) => {
+    setModalData(data);
+    setModalIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalIsOpen(false);
+    setModalData(null);
+  };
+
+  const getUserLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        const userLocation = [longitude, latitude];
+        setUserLocation(userLocation);
+        setSearchAddress(`${latitude}, ${longitude}`);
+        runSearch(`${latitude}, ${longitude}`, 50); // Run initial search with default 50 miles radius
       });
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
+  };
 
-      // Fetch locations from Airtable
-      const locations = await fetchLocations();
-      const bounds = new mapboxgl.LngLatBounds();
-      let hasValidCoords = false; // Track if at least one valid marker exists
+  const runSearch = async (address, radius) => {
+    const map = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [-98.5795, 39.8283], // Set initial center to US
+      zoom: 4 // Set zoom level for better visibility
+    });
 
-      // Loop through locations and geocode them
-      for (const location of locations) {
-        const address = location.fields['Full Address'];
-        const name = location.fields['Location Name'];
+    const allLocations = await fetchLocations();
+    const bounds = new mapboxgl.LngLatBounds();
+    let hasValidCoords = false;
 
-        try {
-          const response = await mapboxClient
-            .forwardGeocode({
-              query: address,
-              autocomplete: false,
-              limit: 1
-            })
-            .send();
+    // Geocode the search address to get coordinates
+    const searchResponse = await mapboxClient.forwardGeocode({ query: address, limit: 1 }).send();
+    if (!searchResponse.body.features.length) return;
+    const searchCoords = searchResponse.body.features[0].center;
 
-          if (
-            !response ||
-            !response.body ||
-            !response.body.features ||
-            !response.body.features.length
-          ) {
-            console.warn(`Could not geocode address: ${address}`);
-            continue;
-          }
+    // Loop through locations and filter by radius
+    for (const location of allLocations) {
+      const locAddress = location.fields['Full Address'];
+      const name = location.fields['Location Name'];
+      const isPremium = location.fields['isPremium'];
+      const pinColor = isPremium ? 'gold' : 'red';
 
-          const feature = response.body.features[0];
-          const coords = feature.center;
+      try {
+        const locResponse = await mapboxClient
+          .forwardGeocode({
+            query: locAddress,
+            autocomplete: false,
+            limit: 1
+          })
+          .send();
 
-          if (!coords || coords.length !== 2) {
-            console.warn(`Invalid coordinates for address: ${address}`);
-            continue;
-          }
+        if (!locResponse.body.features.length) continue;
+        const locCoords = locResponse.body.features[0].center;
 
-          console.log(`Geocoded ${address}:`, coords);
+        // Calculate distance between search location and current location using Haversine formula
+        const distanceInMiles = haversineDistance(searchCoords, locCoords);
 
-          // Add marker to the map
-          new mapboxgl.Marker()
-            .setLngLat(coords)
-            .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
+        // If the radius is "any" or the distance is within the selected radius, add the marker
+        if (radius === 'any' || distanceInMiles <= radius) {
+          const marker = new mapboxgl.Marker({ color: pinColor })
+            .setLngLat(locCoords)
+            .setPopup(new mapboxgl.Popup().setText(name))
             .addTo(map);
 
-          // Extend map bounds to include this marker
-          bounds.extend(coords);
+          marker.getElement().addEventListener('click', () => {
+            openModal(location.fields);
+          });
+
+          bounds.extend(locCoords);
           hasValidCoords = true;
-
-        } catch (error) {
-          console.error(`Error geocoding address: ${address}`, error);
         }
-      }
 
-      // Adjust the map to fit all markers
-      if (hasValidCoords) {
-        map.fitBounds(bounds, { padding: 50 });
-      } else {
-        console.warn("No valid coordinates found for any address.");
+      } catch (error) {
+        console.error(`Error geocoding address: ${locAddress}`, error);
       }
-    };
+    }
 
-    initMap(); // Call the function to initialize the map
+    // Adjust the map to fit all markers
+    if (hasValidCoords) {
+      map.fitBounds(bounds, { padding: 50 });
+    }
+  };
+
+  useEffect(() => {
+    getUserLocation();
   }, []);
 
   return (
-    <>
-      {error && <div className="error">{error}</div>}
+    <div>
+      <div className={styles.searchContainer}>
+        <input
+          type="text"
+          value={searchAddress}
+          onChange={(e) => setSearchAddress(e.target.value)}
+          placeholder="Enter address"
+        />
+        <select
+          value={searchRadius}
+          onChange={(e) => setSearchRadius(e.target.value)}
+        >
+          {radiusOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <button onClick={() => runSearch(searchAddress, searchRadius)}>Search</button>
+      </div>
+
       <div ref={mapContainer} className={styles.mapContainer} />
-    </>
+
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
+        {modalData && (
+          <div>
+            <h2>{modalData['Location Name']}</h2>
+            <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
+            <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
+            <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
+            <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
+            <button onClick={closeModal}>Close</button>
+          </div>
+        )}
+      </Modal>
+    </div>
   );
 };
 
