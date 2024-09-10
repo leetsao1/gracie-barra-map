@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import mapboxgl from 'mapbox-gl';
-import mapboxSdk from '@mapbox/mapbox-sdk/services/geocoding';
 import styles from "../styles/style.module.css";
 
 // Airtable setup
@@ -11,9 +10,6 @@ const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 
 // Mapbox access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
-
-// Initialize the Mapbox geocoding client
-const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
 const Component = () => {
   const mapContainer = React.useRef(null);
@@ -50,33 +46,14 @@ const Component = () => {
       const bounds = new mapboxgl.LngLatBounds();
       let hasValidCoords = false; // Track if at least one valid marker exists
 
-      // Loop through locations and geocode them
+      // Loop through locations and add them as markers to the map
       for (const location of locations) {
-        const address = location.fields['Full Address'];
         const name = location.fields['Location Name'];
+        const latitude = location.fields['Latitude'];
+        const longitude = location.fields['Longitude'];
 
-        try {
-          const response = await mapboxClient
-            .forwardGeocode({
-              query: address,
-              autocomplete: false,
-              limit: 1
-            })
-            .send();
-
-          if (
-            !response ||
-            !response.body ||
-            !response.body.features ||
-            !response.body.features.length
-          ) {
-            console.warn(`Could not geocode address: ${address}`);
-            continue;
-          }
-
-          const feature = response.body.features[0];
-          const coords = feature.center;
-          console.log(`Geocoded ${address}:`, coords);
+        if (latitude && longitude) {
+          const coords = [longitude, latitude]; // [lng, lat] format for Mapbox
 
           // Add marker to the map
           new mapboxgl.Marker()
@@ -84,12 +61,13 @@ const Component = () => {
             .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
             .addTo(map);
 
+          console.log(`Marker added at: ${coords} for location: ${name}`);
+
           // Extend map bounds to include this marker
           bounds.extend(coords);
           hasValidCoords = true;
-
-        } catch (error) {
-          console.error(`Error geocoding address: ${address}`, error);
+        } else {
+          console.warn(`Missing coordinates for location: ${name}`);
         }
       }
 
