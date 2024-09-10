@@ -68,6 +68,12 @@ const Component = () => {
         }
       });
 
+      // Add a test marker at San Diego, CA
+      new mapboxgl.Marker({ color: "#FF0000" }) // Optional: add color for visibility
+        .setLngLat([-117.1611, 32.7157]) // San Diego, CA coordinates
+        .setPopup(new mapboxgl.Popup().setText('San Diego, CA')) // Add popup with test location name
+        .addTo(map);
+
       // Adjust map to fit all markers
       if (!bounds.isEmpty()) {
         map.fitBounds(bounds, { padding: 50 });
