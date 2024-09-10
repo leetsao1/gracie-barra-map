@@ -1,21 +1,48 @@
-/* style.module.css */
-
 .mapContainer {
-    height: 100vh; /* Modified to fill the whole viewport height */
+    height: 100vh; /* Full viewport height */
     width: 100%;
-    position: relative; /* Ensure the container is positioned correctly */
+    position: relative; /* Necessary for positioning children like absolute */
 }
 
 .mapboxgl-canvas {
-    height: 100%; /* Ensure the map canvas fills the container */
+    height: 100%; /* Stretch canvas to fill its container */
     width: 100%;
 }
 
 .mapboxgl-marker {
-    background-image: url('/marker-icon.png');
-    background-size: cover;
-    width: 30px;
-    height: 30px;
-    cursor: pointer;
+    background-image: url('/marker-icon.png'); /* Custom marker icon */
+    background-size: cover; /* Cover the area of the marker */
+    width: 30px; /* Width of the marker */
+    height: 30px; /* Height of the marker */
+    cursor: pointer; /* Change cursor on hover over marker */
 }
+
+.modalContent {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  marginRight: -50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  padding: 20px;
+  width: 400px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  backgroundColor: 'rgba(0, 0, 0, 0.75)';
+}
+
+.mapContainer {
+  width: 100%;
+  height: 100vh;
+}
+
  
