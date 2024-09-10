@@ -14,72 +14,50 @@ const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 // Mapbox access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
 
-// Initialize the Mapbox geocoding client
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
-
-// Modal setup
-Modal.setAppElement('#root');
 
 const Component = () => {
   const mapContainer = React.useRef(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [modalData, setModalData] = useState(null);
 
-  // Function to open the modal with data
-  const openModal = (location) => {
-    setSelectedLocation(location);
+  const fetchLocations = async () => {
+    try {
+      const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}`, {
+        headers: {
+          Authorization: `Bearer ${AIRTABLE_API_KEY}`
+        }
+      });
+      const data = await response.json();
+      return data.records;
+    } catch (error) {
+      console.error("Error fetching data from Airtable:", error);
+      return [];
+    }
+  };
+
+  const openModal = (data) => {
+    setModalData(data);
     setModalIsOpen(true);
   };
 
-  // Function to close the modal
   const closeModal = () => {
     setModalIsOpen(false);
-    setSelectedLocation(null);
+    setModalData(null);
   };
 
-  // Function to fetch locations from Airtable with pagination handling
-  const fetchLocations = async () => {
-    let allRecords = [];
-    let offset = null;
-
-    try {
-      do {
-        const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}${offset ? `&offset=${offset}` : ''}`;
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${AIRTABLE_API_KEY}`
-          }
-        });
-
-        const data = await response.json();
-        allRecords = [...allRecords, ...data.records];
-
-        // If there's more data to fetch, Airtable will return an offset
-        offset = data.offset;
-      } while (offset); // Continue fetching until there's no offset
-    } catch (error) {
-      console.error("Error fetching data from Airtable:", error);
-    }
-
-    return allRecords;
-  };
-
-  // Initialize the map and fetch locations on component mount
   useEffect(() => {
     const initMap = async () => {
       const map = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-98.5795, 39.8283], // Set initial center to US
-        zoom: 4 // Set zoom level for better visibility
+        center: [-98.5795, 39.8283],
+        zoom: 4
       });
 
-      // Fetch locations from Airtable
       const locations = await fetchLocations();
       const bounds = new mapboxgl.LngLatBounds();
-      let hasValidCoords = false; // Track if at least one valid marker exists
 
-      // Loop through locations and geocode them
       for (const location of locations) {
         const address = location.fields['Full Address'];
         const name = location.fields['Location Name'];
@@ -95,72 +73,47 @@ const Component = () => {
             })
             .send();
 
-          if (
-            !response ||
-            !response.body ||
-            !response.body.features ||
-            !response.body.features.length
-          ) {
-            console.warn(`Could not geocode address: ${address}`);
-            continue;
-          }
-
+          if (!response.body.features.length) continue;
           const feature = response.body.features[0];
           const coords = feature.center;
 
-          // Add marker to the map
-          const markerEl = document.createElement('div');
-          markerEl.style.backgroundColor = pinColor;
-          markerEl.style.width = '20px';
-          markerEl.style.height = '20px';
-          markerEl.style.borderRadius = '50%';
-
-          const marker = new mapboxgl.Marker({ element: markerEl })
+          const marker = new mapboxgl.Marker({ color: pinColor })
             .setLngLat(coords)
+            .setPopup(new mapboxgl.Popup().setText(name))
             .addTo(map);
 
-          // Open modal when marker is clicked
-          marker.getElement().addEventListener('click', () => openModal(location));
+          marker.getElement().addEventListener('click', () => {
+            openModal(location.fields);
+          });
 
-          // Extend map bounds to include this marker
           bounds.extend(coords);
-          hasValidCoords = true;
-
         } catch (error) {
           console.error(`Error geocoding address: ${address}`, error);
         }
       }
 
-      // Adjust the map to fit all markers
-      if (hasValidCoords) {
-        map.fitBounds(bounds, { padding: 50 });
-      }
+      map.fitBounds(bounds, { padding: 50 });
     };
 
-    initMap(); // Call the function to initialize the map
+    initMap();
   }, []);
 
   return (
     <div>
       <div ref={mapContainer} className={styles.mapContainer} />
 
-      {/* Modal for displaying additional location details */}
-      {selectedLocation && (
-        <Modal
-          isOpen={modalIsOpen}
-          onRequestClose={closeModal}
-          contentLabel="Location Details"
-          className={styles.modalContent}
-          overlayClassName={styles.modalOverlay}
-        >
-          <h2>{selectedLocation.fields['Location Name']}</h2>
-          <p><strong>Full Address:</strong> {selectedLocation.fields['Full Address']}</p>
-          <p><strong>Website:</strong> <a href={selectedLocation.fields['Website']} target="_blank" rel="noopener noreferrer">{selectedLocation.fields['Website']}</a></p>
-          <p><strong>Instructor:</strong> {selectedLocation.fields['Instructor']}</p>
-          <p><strong>Phone Number:</strong> {selectedLocation.fields['Phone Number']}</p>
-          <button onClick={closeModal}>Close</button>
-        </Modal>
-      )}
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
+        {modalData && (
+          <div>
+            <h2>{modalData['Location Name']}</h2>
+            <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
+            <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
+            <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
+            <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
+            <button onClick={closeModal}>Close</button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
