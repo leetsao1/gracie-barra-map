@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import mapboxgl from 'mapbox-gl';
 import mapboxSdk from '@mapbox/mapbox-sdk/services/geocoding';
 import styles from "../styles/style.module.css";
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 // Airtable setup
 const AIRTABLE_BASE_ID = 'apprkakhR1gSO8JIj';
