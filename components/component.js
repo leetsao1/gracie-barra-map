@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import mapboxgl from 'mapbox-gl';
-import mapboxSdk from '@mapbox/mapbox-sdk/services/geocoding'; // Import the geocoding service from Mapbox SDK
+import mapboxSdk from '@mapbox/mapbox-sdk/services/geocoding';
 import styles from "../styles/style.module.css";
 
 // Airtable setup
@@ -35,36 +35,6 @@ const Component = () => {
     }
   };
 
-  // Function to geocode address using Mapbox SDK and get coordinates
-  const geocodeAddress = async (address) => {
-    try {
-      const response = await mapboxClient
-        .forwardGeocode({
-          query: address,
-          autocomplete: false,
-          limit: 1
-        })
-        .send();
-
-      if (
-        !response ||
-        !response.body ||
-        !response.body.features ||
-        !response.body.features.length
-      ) {
-        console.error(`No geocoding result for: ${address}`);
-        return null;
-      }
-
-      const feature = response.body.features[0];
-      console.log(`Geocoded ${address}:`, feature.center);
-      return feature.center; // Returns [lng, lat]
-    } catch (error) {
-      console.error("Error geocoding address:", error);
-      return null;
-    }
-  };
-
   // Initialize the map and fetch locations on component mount
   useEffect(() => {
     const initMap = async () => {
@@ -80,35 +50,53 @@ const Component = () => {
       const bounds = new mapboxgl.LngLatBounds();
       let hasValidCoords = false; // Track if at least one valid marker exists
 
-      // Loop through locations and add them as markers to the map
+      // Loop through locations and geocode them
       for (const location of locations) {
         const address = location.fields['Full Address'];
         const name = location.fields['Location Name'];
 
-        const coords = await geocodeAddress(address);
-        if (coords) {
-          // Add marker to the map at the geocoded location
+        try {
+          const response = await mapboxClient
+            .forwardGeocode({
+              query: address,
+              autocomplete: false,
+              limit: 1
+            })
+            .send();
+
+          if (
+            !response ||
+            !response.body ||
+            !response.body.features ||
+            !response.body.features.length
+          ) {
+            console.warn(`Could not geocode address: ${address}`);
+            continue;
+          }
+
+          const feature = response.body.features[0];
+          const coords = feature.center;
+          console.log(`Geocoded ${address}:`, coords);
+
+          // Add marker to the map
           new mapboxgl.Marker()
             .setLngLat(coords)
             .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
             .addTo(map);
-          
-          console.log(`Marker added at: ${coords} for location: ${name}`);
 
           // Extend map bounds to include this marker
           bounds.extend(coords);
-          hasValidCoords = true; // Found at least one valid marker
-        } else {
-          console.warn(`Could not geocode address: ${address}`);
+          hasValidCoords = true;
+
+        } catch (error) {
+          console.error(`Error geocoding address: ${address}`, error);
         }
       }
 
-      // Adjust the map to fit all markers only if we have valid coordinates
+      // Adjust the map to fit all markers
       if (hasValidCoords) {
         map.fitBounds(bounds, { padding: 50 });
       }
-
-      return () => map.remove(); // Cleanup map on component unmount
     };
 
     initMap(); // Call the function to initialize the map
