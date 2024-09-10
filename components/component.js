@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import mapboxgl from 'mapbox-gl';
-import axios from 'axios'; // For making HTTP requests
+import axios from 'axios';
 import styles from "../styles/style.module.css";
 
 // Airtable setup
@@ -33,14 +33,14 @@ const Component = () => {
     }
   };
 
-  // Initialize the map and add markers on component mount
+  // Initialize the map and add markers
   useEffect(() => {
     const initMap = async () => {
       const map = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v11',
-        center: [-98.5795, 39.8283], // Set initial center to US
-        zoom: 4 // Set zoom level for better visibility
+        center: [-98.5795, 39.8283], // Center map to US
+        zoom: 4
       });
 
       // Fetch locations from Airtable
@@ -51,12 +51,13 @@ const Component = () => {
       locations.forEach((location) => {
         const { 'Location Name': name, 'Latitude': lat, 'Longitude': lng } = location.fields;
 
+        // Check that both lat and lng are defined
         if (lat && lng) {
-          console.log(`Adding marker for ${name} at ${lat}, ${lng}`);
+          console.log(`Adding marker for ${name} at Latitude: ${lat}, Longitude: ${lng}`);
 
-          // Add marker to the map using the provided coordinates
+          // Add marker using the coordinates from Airtable
           new mapboxgl.Marker()
-            .setLngLat([lng, lat])
+            .setLngLat([lng, lat]) // Longitude first, then Latitude
             .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
             .addTo(map);
 
@@ -67,10 +68,14 @@ const Component = () => {
         }
       });
 
-      // Adjust the map to fit all markers
-      map.fitBounds(bounds, { padding: 50 });
+      // Adjust map to fit all markers
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 50 });
+      } else {
+        console.warn('No valid coordinates found, map bounds not adjusted.');
+      }
 
-      return () => map.remove(); // Cleanup map on component unmount
+      return () => map.remove(); // Cleanup on component unmount
     };
 
     initMap(); // Call the function to initialize the map
