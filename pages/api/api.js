@@ -1,4 +1,3 @@
-```javascript
 // pages/api/locations.js
 
 export default function handler(req, res) {
@@ -25,4 +24,4 @@ export default function handler(req, res) {
   // Send the locations as JSON
   res.status(200).json(locations);
 }
-```
+ 
