@@ -36,8 +36,7 @@ const Component = () => {
   // Function to geocode address using Mapbox and get coordinates
   const geocodeAddress = async (address) => {
     try {
-      // Clean the address (remove extra spaces, handle abbreviations, etc.)
-      const cleanedAddress = address.trim(); // You can apply more cleaning as needed
+      const cleanedAddress = address.trim();
       console.log(`Geocoding address: ${cleanedAddress}`);
 
       const response = await axios.get(`${MAPBOX_GEOCODING_URL}${encodeURIComponent(cleanedAddress)}.json`, {
@@ -46,14 +45,13 @@ const Component = () => {
         }
       });
 
-      // Ensure that geocoding was successful
       if (response.data.features.length === 0) {
         console.warn(`No geocoding result for: ${cleanedAddress}`);
         return null;
       }
 
-      const [lng, lat] = response.data.features[0].center; // Extract longitude and latitude
-      console.log(`Geocoded ${cleanedAddress}: ${lng}, ${lat}`); // Log the geocoded results
+      const [lng, lat] = response.data.features[0].center;
+      console.log(`Geocoded ${cleanedAddress}: ${lng}, ${lat}`);
       return { lng, lat };
     } catch (error) {
       console.error("Error geocoding address:", error);
@@ -73,13 +71,13 @@ const Component = () => {
 
       // Fetch locations from Airtable
       const locations = await fetchLocations();
+      const bounds = new mapboxgl.LngLatBounds();
 
       // Loop through locations and add them as markers to the map
       locations.forEach(async (location) => {
         const address = location.fields['Full Address'];
         const name = location.fields['Location Name'];
 
-        // Geocode the address to get the coordinates
         const coords = await geocodeAddress(address);
         if (coords) {
           // Add marker to the map at the geocoded location
@@ -87,10 +85,16 @@ const Component = () => {
             .setLngLat([coords.lng, coords.lat])
             .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
             .addTo(map);
+          
+          // Extend map bounds to include this marker
+          bounds.extend([coords.lng, coords.lat]);
         } else {
           console.warn(`Could not geocode address: ${address}`);
         }
       });
+
+      // Adjust the map to fit all markers
+      map.fitBounds(bounds, { padding: 50 });
 
       return () => map.remove(); // Cleanup map on component unmount
     };
