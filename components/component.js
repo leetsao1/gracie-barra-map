@@ -24,6 +24,26 @@ const radiusOptions = [
   { value: 'any', label: 'Any distance' },
 ];
 
+// Haversine formula to calculate distance between two latitude/longitude points
+function haversineDistance(coords1, coords2) {
+  const [lon1, lat1] = coords1;
+  const [lon2, lat2] = coords2;
+
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = lat1 * Math.PI / 180; // φ, λ in radians
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distanceInMeters = R * c; // in meters
+  return distanceInMeters / 1609.34; // Convert meters to miles
+}
+
 const Component = () => {
   const mapContainer = React.useRef(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -122,9 +142,8 @@ const Component = () => {
         if (!locResponse.body.features.length) continue;
         const locCoords = locResponse.body.features[0].center;
 
-        // Calculate distance between search location and current location
-        const distance = mapboxgl.MercatorCoordinate.fromLngLat(searchCoords).distanceTo(mapboxgl.MercatorCoordinate.fromLngLat(locCoords));
-        const distanceInMiles = distance / 1609.34;
+        // Calculate distance between search location and current location using Haversine formula
+        const distanceInMiles = haversineDistance(searchCoords, locCoords);
 
         // If the radius is "any" or the distance is within the selected radius, add the marker
         if (radius === 'any' || distanceInMiles <= radius) {
@@ -195,4 +214,3 @@ const Component = () => {
 };
 
 export default Component;
-
