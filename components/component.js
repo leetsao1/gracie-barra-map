@@ -7,7 +7,7 @@ const Component = () => {
   const mapContainer = React.useRef(null);
   // Initialize the map state once in the component
   useEffect(() => {
-    mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN'; // Replace with your Mapbox access token
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ'; // Replace with your Mapbox access token
     
     const map = new mapboxgl.Map({
       container: mapContainer.current,
