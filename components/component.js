@@ -16,199 +16,173 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEyc
 
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
-const radiusOptions = [
-  { value: 10, label: '10 miles' },
-  { value: 25, label: '25 miles' },
-  { value: 50, label: '50 miles' },
-  { value: 100, label: '100 miles' },
-  { value: 'any', label: 'Any distance' },
-];
 
-// Haversine formula to calculate distance between two latitude/longitude points
-function haversineDistance(coords1, coords2) {
-  const [lon1, lat1] = coords1;
-  const [lon2, lat2] = coords2;
-
-  const R = 6371e3; // Earth radius in meters
-  const φ1 = lat1 * Math.PI / 180; // φ, λ in radians
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  const distanceInMeters = R * c; // in meters
-  return distanceInMeters / 1609.34; // Convert meters to miles
-}
+// Clean up and truncate long addresses
+const cleanAddress = (address) => {
+  const addressParts = address.split(',');
+  return addressParts.slice(0, 3).join(', ');
+};
 
 const Component = () => {
   const mapContainer = React.useRef(null);
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [modalData, setModalData] = useState(null);
+  const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
-  const [searchRadius, setSearchRadius] = useState(50);
+  const [radius, setRadius] = useState(50); // Default radius in miles
   const [locations, setLocations] = useState([]);
 
-  // Function to fetch locations from Airtable with pagination
+  // Function to fetch locations from Airtable with pagination handling
   const fetchLocations = async () => {
-    let allRecords = [];
-    let offset = null;
+    const allRecords = [];
+    let offset = '';
 
-    try {
-      do {
-        const response = await fetch(
-          `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}${offset ? `&offset=${offset}` : ''}`, {
+    do {
+      const response = await fetch(
+        `https://api.airtable.com/v0/YOUR_BASE_ID/Locations?view=YOUR_VIEW_NAME&offset=${offset}`,
+        {
           headers: {
-            Authorization: `Bearer ${AIRTABLE_API_KEY}`
-          }
-        });
+            Authorization: `Bearer YOUR_AIRTABLE_API_KEY`,
+          },
+        }
+      );
+      const data = await response.json();
+      allRecords.push(...data.records);
+      offset = data.offset || '';
+    } while (offset);
 
-        const data = await response.json();
-        allRecords = [...allRecords, ...data.records];
-        offset = data.offset;
+    return allRecords;
+  };
 
-      } while (offset);
+  // Reverse geocode to get address from coordinates
+  const reverseGeocode = async (coords) => {
+    try {
+      const response = await mapboxClient
+        .reverseGeocode({
+          query: coords,
+          limit: 1,
+        })
+        .send();
 
-      console.log('Fetched locations from Airtable:', allRecords);
-      return allRecords;
-
+      if (response.body.features.length > 0) {
+        const address = response.body.features[0].place_name;
+        setSearchAddress(address); // Set the reverse-geocoded address
+      }
     } catch (error) {
-      console.error("Error fetching data from Airtable:", error);
-      return [];
+      console.error('Error reverse geocoding:', error);
     }
   };
 
-  const openModal = (data) => {
-    setModalData(data);
-    setModalIsOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalIsOpen(false);
-    setModalData(null);
-  };
-
-  const getUserLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(position => {
-        const { latitude, longitude } = position.coords;
-        const userLocation = [longitude, latitude];
-        setUserLocation(userLocation);
-        setSearchAddress(`${latitude}, ${longitude}`);
-        runSearch(`${latitude}, ${longitude}`, 50); // Run initial search with default 50 miles radius
-      });
-    } else {
-      console.error("Geolocation is not supported by this browser.");
-    }
-  };
-
-  const runSearch = async (address, radius) => {
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [-98.5795, 39.8283], // Set initial center to US
-      zoom: 4 // Set zoom level for better visibility
-    });
-
+  // Search function to filter locations based on address and radius
+  const runSearch = async (searchAddress, radius) => {
     const allLocations = await fetchLocations();
     const bounds = new mapboxgl.LngLatBounds();
     let hasValidCoords = false;
 
-    // Geocode the search address to get coordinates
-    const searchResponse = await mapboxClient.forwardGeocode({ query: address, limit: 1 }).send();
-    if (!searchResponse.body.features.length) return;
-    const searchCoords = searchResponse.body.features[0].center;
-
-    // Loop through locations and filter by radius
-    for (const location of allLocations) {
+    allLocations.forEach(async (location) => {
       const locAddress = location.fields['Full Address'];
       const name = location.fields['Location Name'];
       const isPremium = location.fields['isPremium'];
-      const pinColor = isPremium ? 'gold' : 'red';
 
       try {
         const locResponse = await mapboxClient
           .forwardGeocode({
-            query: locAddress,
+            query: cleanAddress(locAddress),
             autocomplete: false,
-            limit: 1
+            limit: 1,
           })
           .send();
 
-        if (!locResponse.body.features.length) continue;
-        const locCoords = locResponse.body.features[0].center;
-
-        // Calculate distance between search location and current location using Haversine formula
-        const distanceInMiles = haversineDistance(searchCoords, locCoords);
-
-        // If the radius is "any" or the distance is within the selected radius, add the marker
-        if (radius === 'any' || distanceInMiles <= radius) {
-          const marker = new mapboxgl.Marker({ color: pinColor })
-            .setLngLat(locCoords)
-            .setPopup(new mapboxgl.Popup().setText(name))
-            .addTo(map);
-
-          marker.getElement().addEventListener('click', () => {
-            openModal(location.fields);
-          });
-
-          bounds.extend(locCoords);
-          hasValidCoords = true;
+        if (!locResponse.body.features.length) {
+          console.warn(`Could not geocode address: ${locAddress}`);
+          return;
         }
 
+        const feature = locResponse.body.features[0];
+        const coords = feature.center;
+
+        // Calculate the distance between the searched location and the current location
+        const userCoords = mapboxgl.MercatorCoordinate.fromLngLat(userLocation);
+        const locationCoords = mapboxgl.MercatorCoordinate.fromLngLat(coords);
+        const distance = userCoords.distanceTo(locationCoords);
+
+        // If within the radius, add to the map
+        if (distance <= radius * 1609.34) {
+          new mapboxgl.Marker({ color: isPremium ? 'gold' : 'red' })
+            .setLngLat(coords)
+            .setPopup(
+              new mapboxgl.Popup().setHTML(`
+                <strong>${name}</strong><br />
+                Address: ${locAddress}<br />
+                Phone: ${location.fields['Phone Number'] || 'N/A'}<br />
+                Website: <a href="${location.fields['Website']}" target="_blank">${location.fields['Website'] || 'N/A'}</a><br />
+                Instructor: ${location.fields['Instructor'] || 'N/A'}
+              `)
+            )
+            .addTo(map);
+          bounds.extend(coords);
+          hasValidCoords = true;
+        }
       } catch (error) {
         console.error(`Error geocoding address: ${locAddress}`, error);
       }
-    }
+    });
 
-    // Adjust the map to fit all markers
     if (hasValidCoords) {
       map.fitBounds(bounds, { padding: 50 });
     }
   };
 
+  // Initialize the map and fetch locations on component mount
   useEffect(() => {
-    getUserLocation();
+    const initMap = async () => {
+      const newMap = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [-98.5795, 39.8283], // Center to the US
+        zoom: 4,
+      });
+
+      setMap(newMap);
+
+      // Get user's location and set as default
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        const userCoords = [longitude, latitude];
+        setUserLocation(userCoords);
+
+        // Reverse geocode to get the address of the user's location
+        await reverseGeocode(userCoords);
+
+        // Run initial search with default radius
+        runSearch(`${latitude}, ${longitude}`, 50);
+      });
+    };
+
+    initMap();
   }, []);
 
   return (
     <div>
-      <div className={styles.searchContainer}>
+      {/* Search form */}
+      <div className={styles.searchForm}>
         <input
           type="text"
           value={searchAddress}
           onChange={(e) => setSearchAddress(e.target.value)}
           placeholder="Enter address"
         />
-        <select
-          value={searchRadius}
-          onChange={(e) => setSearchRadius(e.target.value)}
-        >
-          {radiusOptions.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
+        <select value={radius} onChange={(e) => setRadius(e.target.value)}>
+          <option value="10">10 miles</option>
+          <option value="25">25 miles</option>
+          <option value="50">50 miles</option>
+          <option value="100">100 miles</option>
+          <option value="999999">Any</option>
         </select>
-        <button onClick={() => runSearch(searchAddress, searchRadius)}>Search</button>
+        <button onClick={() => runSearch(searchAddress, radius)}>Search</button>
       </div>
 
+      {/* Map container */}
       <div ref={mapContainer} className={styles.mapContainer} />
-
-      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
-        {modalData && (
-          <div>
-            <h2>{modalData['Location Name']}</h2>
-            <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
-            <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
-            <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
-            <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
-            <button onClick={closeModal}>Close</button>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };
