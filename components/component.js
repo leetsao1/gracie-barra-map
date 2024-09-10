@@ -21,15 +21,29 @@ const Component = () => {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
 
+  // Function to fetch locations from Airtable with pagination
   const fetchLocations = async () => {
+    let allRecords = [];
+    let offset = null;
+
     try {
-      const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}`, {
-        headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`
-        }
-      });
-      const data = await response.json();
-      return data.records;
+      do {
+        const response = await fetch(
+          `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}${offset ? `&offset=${offset}` : ''}`, {
+          headers: {
+            Authorization: `Bearer ${AIRTABLE_API_KEY}`
+          }
+        });
+
+        const data = await response.json();
+        allRecords = [...allRecords, ...data.records];
+        offset = data.offset;
+
+      } while (offset);
+
+      console.log('Fetched locations from Airtable:', allRecords);
+      return allRecords;
+
     } catch (error) {
       console.error("Error fetching data from Airtable:", error);
       return [];
@@ -51,12 +65,13 @@ const Component = () => {
       const map = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-98.5795, 39.8283],
-        zoom: 4
+        center: [-98.5795, 39.8283], // Set initial center to US
+        zoom: 4 // Set zoom level for better visibility
       });
 
       const locations = await fetchLocations();
       const bounds = new mapboxgl.LngLatBounds();
+      let hasValidCoords = false;
 
       for (const location of locations) {
         const address = location.fields['Full Address'];
@@ -87,12 +102,17 @@ const Component = () => {
           });
 
           bounds.extend(coords);
+          hasValidCoords = true;
+
         } catch (error) {
           console.error(`Error geocoding address: ${address}`, error);
         }
       }
 
-      map.fitBounds(bounds, { padding: 50 });
+      // Adjust the map to fit all markers
+      if (hasValidCoords) {
+        map.fitBounds(bounds, { padding: 50 });
+      }
     };
 
     initMap();
