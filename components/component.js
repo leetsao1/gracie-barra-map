@@ -25,6 +25,7 @@ const Component = () => {
           Authorization: `Bearer ${AIRTABLE_API_KEY}`
         }
       });
+      console.log('Fetched locations from Airtable:', response.data.records);
       return response.data.records;
     } catch (error) {
       console.error("Error fetching data from Airtable:", error);
@@ -35,12 +36,24 @@ const Component = () => {
   // Function to geocode address using Mapbox and get coordinates
   const geocodeAddress = async (address) => {
     try {
-      const response = await axios.get(`${MAPBOX_GEOCODING_URL}${encodeURIComponent(address)}.json`, {
+      // Clean the address (remove extra spaces, handle abbreviations, etc.)
+      const cleanedAddress = address.trim(); // You can apply more cleaning as needed
+      console.log(`Geocoding address: ${cleanedAddress}`);
+
+      const response = await axios.get(`${MAPBOX_GEOCODING_URL}${encodeURIComponent(cleanedAddress)}.json`, {
         params: {
           access_token: mapboxgl.accessToken
         }
       });
+
+      // Ensure that geocoding was successful
+      if (response.data.features.length === 0) {
+        console.warn(`No geocoding result for: ${cleanedAddress}`);
+        return null;
+      }
+
       const [lng, lat] = response.data.features[0].center; // Extract longitude and latitude
+      console.log(`Geocoded ${cleanedAddress}: ${lng}, ${lat}`); // Log the geocoded results
       return { lng, lat };
     } catch (error) {
       console.error("Error geocoding address:", error);
@@ -54,8 +67,8 @@ const Component = () => {
       const map = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v11',
-        center: [0, 0], // Set initial center of the map
-        zoom: 1 // Set initial zoom level
+        center: [-98.5795, 39.8283], // Set initial center to US
+        zoom: 4 // Set zoom level for better visibility
       });
 
       // Fetch locations from Airtable
@@ -74,6 +87,8 @@ const Component = () => {
             .setLngLat([coords.lng, coords.lat])
             .setPopup(new mapboxgl.Popup().setText(name)) // Add popup with location name
             .addTo(map);
+        } else {
+          console.warn(`Could not geocode address: ${address}`);
         }
       });
 
@@ -89,4 +104,3 @@ const Component = () => {
 };
 
 export default Component;
-
