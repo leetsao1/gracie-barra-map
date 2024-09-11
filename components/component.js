@@ -14,6 +14,7 @@ const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 // Mapbox access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
 
+
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
 const radiusOptions = [
@@ -112,7 +113,7 @@ const Component = () => {
 
   // Get user's current location, reverse geocode it, and trigger search
   const getUserLocationAndSearch = async () => {
-    if (navigator.geolocation) {
+    if (typeof window !== "undefined" && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
         const userCoords = [longitude, latitude];
@@ -129,13 +130,15 @@ const Component = () => {
 
   // Initialize map with a center at user's location or search address
   const initializeMap = (coords) => {
-    const newMap = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: coords, // Center on user's location
-      zoom: 10 // Zoom level for better visibility
-    });
-    setMap(newMap); // Store map instance in state
+    if (typeof window !== "undefined") {
+      const newMap = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: coords, // Center on user's location
+        zoom: 10 // Zoom level for better visibility
+      });
+      setMap(newMap); // Store map instance in state
+    }
   };
 
   const clearMarkers = () => {
@@ -225,7 +228,10 @@ const Component = () => {
   }, [map]);
 
   useEffect(() => {
-    getUserLocationAndSearch(); // On component mount, get user's location and trigger search
+    // Check if window is defined to prevent SSR issues
+    if (typeof window !== "undefined") {
+      getUserLocationAndSearch(); // On component mount, get user's location and trigger search
+    }
   }, []);
 
   return (
