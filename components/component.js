@@ -15,7 +15,6 @@ const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
 
 
-
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
 const radiusOptions = [
@@ -48,11 +47,12 @@ function haversineDistance(coords1, coords2) {
 
 const Component = () => {
   const mapContainer = React.useRef(null);
+  const [map, setMap] = useState(null); // Store the map instance
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
-  const [searchAddress, setSearchAddress] = useState('New York, NY'); // Default initial address
+  const [userLocation, setUserLocation] = useState(null); // Store user's current location
+  const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
-  const [locations, setLocations] = useState([]);
 
   // Function to fetch locations from Airtable with pagination
   const fetchLocations = async () => {
@@ -93,22 +93,49 @@ const Component = () => {
     setModalData(null);
   };
 
-  const runSearch = async (address, radius) => {
-    const map = new mapboxgl.Map({
+  // Get user's current location and run the search
+  const getUserLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        const userCoords = [longitude, latitude];
+        setUserLocation(userCoords);
+        setSearchAddress(`${latitude}, ${longitude}`);
+        await initializeMap(userCoords); // Initialize map centered at user's location
+        runSearch(userCoords, 50); // Initial search with 50 miles radius
+      });
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
+  };
+
+  // Initialize map with a center at user's location or search address
+  const initializeMap = (coords) => {
+    const newMap = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [-98.5795, 39.8283], // Set initial center to US
-      zoom: 4 // Set zoom level for better visibility
+      center: coords, // Center on user's location
+      zoom: 10 // Zoom level for better visibility
     });
+    setMap(newMap); // Store map instance in state
+  };
+
+  const runSearch = async (addressOrCoords, radius) => {
+    if (!map) return; // Ensure map is initialized
 
     const allLocations = await fetchLocations();
     const bounds = new mapboxgl.LngLatBounds();
     let hasValidCoords = false;
 
-    // Geocode the search address to get coordinates
-    const searchResponse = await mapboxClient.forwardGeocode({ query: address, limit: 1 }).send();
-    if (!searchResponse.body.features.length) return;
-    const searchCoords = searchResponse.body.features[0].center;
+    // Geocode the search address if it's not already coordinates
+    let searchCoords;
+    if (typeof addressOrCoords === 'string') {
+      const searchResponse = await mapboxClient.forwardGeocode({ query: addressOrCoords, limit: 1 }).send();
+      if (!searchResponse.body.features.length) return;
+      searchCoords = searchResponse.body.features[0].center;
+    } else {
+      searchCoords = addressOrCoords; // Use coords directly if provided
+    }
 
     // Loop through locations and filter by radius
     for (const location of allLocations) {
@@ -159,7 +186,7 @@ const Component = () => {
   };
 
   useEffect(() => {
-    runSearch(searchAddress, searchRadius); // Run initial search with default address and 50 miles radius
+    getUserLocation(); // On component mount, get user's location and initialize map
   }, []);
 
   return (
