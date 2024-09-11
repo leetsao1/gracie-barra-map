@@ -210,6 +210,12 @@ const Component = () => {
     getUserLocation(); // On component mount, get user's location and initialize map
   }, []);
 
+  useEffect(() => {
+    if (searchAddress) {
+      runSearch(searchAddress, searchRadius); // Automatically trigger search on page load after user location is set
+    }
+  }, [searchAddress]);
+
   return (
     <div>
       <div className={styles.searchContainer}>
