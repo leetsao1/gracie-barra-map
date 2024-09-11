@@ -93,16 +93,37 @@ const Component = () => {
     setModalData(null);
   };
 
-  // Get user's current location and run the search
+  // Convert coordinates to an address using Mapbox reverse geocoding
+  const reverseGeocode = async (coords) => {
+    try {
+      const response = await mapboxClient.reverseGeocode({
+        query: coords,
+        limit: 1
+      }).send();
+
+      if (response.body.features.length) {
+        return response.body.features[0].place_name;
+      }
+      return `${coords[1]}, ${coords[0]}`; // Fallback to coords if no address is found
+    } catch (error) {
+      console.error("Error reverse geocoding:", error);
+      return `${coords[1]}, ${coords[0]}`; // Fallback in case of error
+    }
+  };
+
+  // Get user's current location, reverse geocode it, and trigger search
   const getUserLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
         const userCoords = [longitude, latitude];
         setUserLocation(userCoords);
-        setSearchAddress(`${latitude}, ${longitude}`);
+
+        const address = await reverseGeocode(userCoords);
+        setSearchAddress(address);
+
         await initializeMap(userCoords); // Initialize map centered at user's location
-        runSearch(userCoords, 50); // Initial search with 50 miles radius
+        runSearch(address, 50); // Trigger search after getting user location and address
       });
     } else {
       console.error("Geolocation is not supported by this browser.");
