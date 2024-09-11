@@ -121,7 +121,7 @@ const Component = () => {
         setSearchAddress(address);
 
         initializeMap(userCoords); // Initialize map centered at user's location
-        runSearch(address, 50); // Trigger search automatically
+        runSearch(address, 50); // Trigger search automatically after setting address
       });
     } else {
       console.error("Geolocation is not supported by this browser.");
