@@ -158,7 +158,7 @@ const Component = () => {
 
     // Loop through locations and filter by radius
     for (const location of allLocations) {
-      const locAddress = location.fields['Full Address'];
+      const locAddress = location.fields['Address for Geolocation'];
       const name = location.fields['Location Name'];
       const isPremium = location.fields['isPremium'];
       const pinColor = isPremium ? 'gold' : 'red';
