@@ -142,6 +142,8 @@ const Component = () => {
   const runSearch = async (addressOrCoords, radius) => {
     if (!map) return; // Ensure map is initialized
 
+    console.log("running search...");
+
     const allLocations = await fetchLocations();
     const bounds = new mapboxgl.LngLatBounds();
     let hasValidCoords = false;
