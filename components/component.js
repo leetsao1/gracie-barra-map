@@ -122,7 +122,7 @@ const Component = () => {
 
         initializeMap(userCoords); // Initialize map centered at user's location
         console.log("map initialized for address: "+address);
-        runSearch(address, 50); // Trigger search automatically after setting address
+        //runSearch(address, 50); // Trigger search automatically after setting address
       });
     } else {
       console.error("Geolocation is not supported by this browser.");
@@ -206,9 +206,14 @@ const Component = () => {
     }
   };
 
+ useEffect(() => {
+    if (map) {
+      runSearch(searchAddress, searchRadius);
+    }
+  }, [map]);
+
   useEffect(() => {
     getUserLocationAndSearch(); // On component mount, get user's location and trigger search
-    console.log("running initial search");
   }, []);
 
   return (
