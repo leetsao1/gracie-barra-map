@@ -32,7 +32,7 @@ function haversineDistance(coords1, coords2) {
 
   const R = 6371e3; // Earth radius in meters
   const φ1 = lat1 * Math.PI / 180; // φ, λ in radians
-  const φ2 = lat2 * Math.PI / 180;
+  const φ2 = lon2 * Math.PI / 180;
   const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
 
@@ -47,14 +47,16 @@ function haversineDistance(coords1, coords2) {
 
 const Component = () => {
   const mapContainer = React.useRef(null);
-  const [map, setMap] = useState(null); // Store the map instance
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
+  const [allLocations, setAllLocations] = useState([]);
+  const [mapInstance, setMapInstance] = useState(null);
 
-  // Function to fetch locations from Airtable with pagination
-  const fetchLocations = async () => {
+  // Fetch all Airtable locations once and store them in state
+  const fetchLocationsOnce = async () => {
     let allRecords = [];
     let offset = null;
 
@@ -73,12 +75,11 @@ const Component = () => {
 
       } while (offset);
 
+      setAllLocations(allRecords); // Store in state after fetching
       console.log('Fetched locations from Airtable:', allRecords);
-      return allRecords;
 
     } catch (error) {
       console.error("Error fetching data from Airtable:", error);
-      return [];
     }
   };
 
@@ -92,120 +93,95 @@ const Component = () => {
     setModalData(null);
   };
 
-  // Convert coordinates to an address using Mapbox reverse geocoding
-  const reverseGeocode = async (coords) => {
-    try {
-      const response = await mapboxClient.reverseGeocode({
-        query: coords,
-        limit: 1
-      }).send();
-
-      if (response.body.features.length) {
-        return response.body.features[0].place_name;
-      }
-      return `${coords[1]}, ${coords[0]}`; // Fallback to coords if no address is found
-    } catch (error) {
-      console.error("Error reverse geocoding:", error);
-      return `${coords[1]}, ${coords[0]}`; // Fallback in case of error
-    }
-  };
-
-  // Get user's current location, reverse geocode it, and trigger search
-  const getUserLocationAndSearch = async () => {
+  const getUserLocation = async () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
         const userCoords = [longitude, latitude];
+        setUserLocation(userCoords);
 
-        const address = await reverseGeocode(userCoords);
-        setSearchAddress(address);
+        const reverseGeocodeResponse = await mapboxClient.reverseGeocode({
+          query: userCoords,
+          limit: 1
+        }).send();
 
-        initializeMap(userCoords); // Initialize map centered at user's location
-        runSearch(address, 50); // Trigger search automatically after setting address
+        if (reverseGeocodeResponse.body.features.length) {
+          const address = reverseGeocodeResponse.body.features[0].place_name;
+          setSearchAddress(address);
+          runSearch(userCoords, 50); // Run search automatically
+        }
       });
     } else {
       console.error("Geolocation is not supported by this browser.");
     }
   };
 
-  // Initialize map with a center at user's location or search address
-  const initializeMap = (coords) => {
-    const newMap = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: coords, // Center on user's location
-      zoom: 10 // Zoom level for better visibility
-    });
-    setMap(newMap); // Store map instance in state
-  };
+  const runSearch = (searchCoords, radius) => {
+    if (!mapInstance) return;
 
-  const runSearch = async (addressOrCoords, radius) => {
-    if (!map) return; // Ensure map is initialized
-
-    const allLocations = await fetchLocations();
     const bounds = new mapboxgl.LngLatBounds();
     let hasValidCoords = false;
 
-    // Geocode the search address if it's not already coordinates
-    let searchCoords;
-    if (typeof addressOrCoords === 'string') {
-      const searchResponse = await mapboxClient.forwardGeocode({ query: addressOrCoords, limit: 1 }).send();
-      if (!searchResponse.body.features.length) return;
-      searchCoords = searchResponse.body.features[0].center;
-    } else {
-      searchCoords = addressOrCoords; // Use coords directly if provided
-    }
-
-    // Loop through locations and filter by radius
     for (const location of allLocations) {
       const locAddress = location.fields['Full Address'];
       const name = location.fields['Location Name'];
       const isPremium = location.fields['isPremium'];
       const pinColor = isPremium ? 'gold' : 'red';
 
-      try {
-        const locResponse = await mapboxClient
-          .forwardGeocode({
-            query: locAddress,
-            autocomplete: false,
-            limit: 1
-          })
-          .send();
+      // Geocode the location's address to get coordinates
+      mapboxClient
+        .forwardGeocode({
+          query: locAddress,
+          autocomplete: false,
+          limit: 1
+        })
+        .send()
+        .then((locResponse) => {
+          if (!locResponse.body.features.length) return;
+          const locCoords = locResponse.body.features[0].center;
 
-        if (!locResponse.body.features.length) continue;
-        const locCoords = locResponse.body.features[0].center;
+          // Calculate distance using Haversine formula
+          const distanceInMiles = haversineDistance(searchCoords, locCoords);
 
-        // Calculate distance between search location and current location using Haversine formula
-        const distanceInMiles = haversineDistance(searchCoords, locCoords);
+          if (radius === 'any' || distanceInMiles <= radius) {
+            const marker = new mapboxgl.Marker({ color: pinColor })
+              .setLngLat(locCoords)
+              .setPopup(new mapboxgl.Popup().setText(name))
+              .addTo(mapInstance);
 
-        // If the radius is "any" or the distance is within the selected radius, add the marker
-        if (radius === 'any' || distanceInMiles <= radius) {
-          const marker = new mapboxgl.Marker({ color: pinColor })
-            .setLngLat(locCoords)
-            .setPopup(new mapboxgl.Popup().setText(name))
-            .addTo(map);
+            marker.getElement().addEventListener('click', () => {
+              openModal(location.fields);
+            });
 
-          marker.getElement().addEventListener('click', () => {
-            openModal(location.fields);
-          });
-
-          bounds.extend(locCoords);
-          hasValidCoords = true;
-        }
-
-      } catch (error) {
-        console.error(`Error geocoding address: ${locAddress}`, error);
-      }
+            bounds.extend(locCoords);
+            hasValidCoords = true;
+          }
+        })
+        .catch((error) => {
+          console.error(`Error geocoding address: ${locAddress}`, error);
+        });
     }
 
-    // Adjust the map to fit all markers
     if (hasValidCoords) {
-      map.fitBounds(bounds, { padding: 50 });
+      mapInstance.fitBounds(bounds, { padding: 50 });
     }
   };
 
   useEffect(() => {
-    getUserLocationAndSearch(); // On component mount, get user's location and trigger search
+    // Initialize the map only once
+    const map = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [-98.5795, 39.8283], // Set initial center to US
+      zoom: 4 // Set zoom level for better visibility
+    });
+    setMapInstance(map);
+
+    // Fetch Airtable locations and user's location on load
+    fetchLocationsOnce();
+    getUserLocation();
+
+    return () => map.remove(); // Cleanup on unmount
   }, []);
 
   return (
@@ -225,7 +201,7 @@ const Component = () => {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
-        <button onClick={() => runSearch(searchAddress, searchRadius)}>Search</button>
+        <button onClick={() => runSearch(userLocation, searchRadius)}>Search</button>
       </div>
 
       <div ref={mapContainer} className={styles.mapContainer} />
