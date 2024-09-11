@@ -52,7 +52,6 @@ const Component = () => {
   const [modalData, setModalData] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
-  const markersRef = useRef([]); // Store markers in a useRef to track them across renders
 
   // Function to fetch locations from Airtable with pagination
   const fetchLocations = async () => {
@@ -113,7 +112,7 @@ const Component = () => {
 
   // Get user's current location, reverse geocode it, and trigger search
   const getUserLocationAndSearch = async () => {
-    if (typeof window !== "undefined" && navigator.geolocation) {
+    if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
         const userCoords = [longitude, latitude];
@@ -122,6 +121,8 @@ const Component = () => {
         setSearchAddress(address);
 
         initializeMap(userCoords); // Initialize map centered at user's location
+        console.log("map initialized for address: "+address);
+        //runSearch(address, 50); // Trigger search automatically after setting address
       });
     } else {
       console.error("Geolocation is not supported by this browser.");
@@ -130,30 +131,18 @@ const Component = () => {
 
   // Initialize map with a center at user's location or search address
   const initializeMap = (coords) => {
-    if (typeof window !== "undefined") {
-      const newMap = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: coords, // Center on user's location
-        zoom: 10 // Zoom level for better visibility
-      });
-      setMap(newMap); // Store map instance in state
-    }
-  };
-
-  const clearMarkers = () => {
-    // Remove all markers from the map
-    markersRef.current.forEach(marker => marker.remove());
-    // Clear the markers array
-    markersRef.current = [];
+    const newMap = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: coords, // Center on user's location
+      zoom: 10 // Zoom level for better visibility
+    });
+    setMap(newMap); // Store map instance in state
   };
 
   const runSearch = async (addressOrCoords, radius) => {
     console.log("running search...");
     if (!map) return; // Ensure map is initialized
-
-    // Clear existing markers before running a new search
-    clearMarkers();
 
     const allLocations = await fetchLocations();
     const bounds = new mapboxgl.LngLatBounds();
@@ -202,9 +191,6 @@ const Component = () => {
             openModal(location.fields);
           });
 
-          // Add marker to the array
-          markersRef.current.push(marker);
-
           bounds.extend(locCoords);
           hasValidCoords = true;
         }
@@ -220,18 +206,14 @@ const Component = () => {
     }
   };
 
-  // Trigger search when the map is initialized
-  useEffect(() => {
+ useEffect(() => {
     if (map) {
       runSearch(searchAddress, searchRadius);
     }
   }, [map]);
 
   useEffect(() => {
-    // Check if window is defined to prevent SSR issues
-    if (typeof window !== "undefined") {
-      getUserLocationAndSearch(); // On component mount, get user's location and trigger search
-    }
+    getUserLocationAndSearch(); // On component mount, get user's location and trigger search
   }, []);
 
   return (
