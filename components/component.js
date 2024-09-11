@@ -121,6 +121,7 @@ const Component = () => {
         setSearchAddress(address);
 
         initializeMap(userCoords); // Initialize map centered at user's location
+        console.log("map initialized for address: "+address);
         runSearch(address, 50); // Trigger search automatically after setting address
       });
     } else {
