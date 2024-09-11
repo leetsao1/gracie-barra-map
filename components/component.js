@@ -206,6 +206,7 @@ const Component = () => {
 
   useEffect(() => {
     getUserLocationAndSearch(); // On component mount, get user's location and trigger search
+    console.log("running initial search");
   }, []);
 
   return (
