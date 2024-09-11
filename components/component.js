@@ -140,6 +140,8 @@ const Component = () => {
     const bounds = new mapboxgl.LngLatBounds();
     let hasValidCoords = false;
 
+    console.log("Running search with coordinates:", searchCoords);
+
     // Loop through locations and filter by radius
     for (const location of allLocations) {
       const locAddress = location.fields['Address for Geolocation'];
@@ -162,6 +164,7 @@ const Component = () => {
 
         // If the radius is "any" or the distance is within the selected radius, add the marker
         if (radius === 'any' || distanceInMiles <= radius) {
+          console.log(`Adding pin for ${name} at ${locCoords}`);
           const marker = new mapboxgl.Marker({ color: pinColor })
             .setLngLat(locCoords)
             .setPopup(new mapboxgl.Popup().setText(name))
@@ -193,9 +196,10 @@ const Component = () => {
       const userAddress = await reverseGeocode(userCoords);
       setSearchAddress(userAddress);
       initializeMap(userCoords);
+      runSearch(userCoords, searchRadius); // Trigger search right after map initialization
     };
     loadData();
-  }, []);
+  }, [searchRadius]); // Re-run search when the radius changes
 
   return (
     <div>
