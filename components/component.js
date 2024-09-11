@@ -5,6 +5,7 @@ import Modal from 'react-modal';
 import styles from "../styles/style.module.css";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
+
 // Airtable setup
 const AIRTABLE_BASE_ID = 'apprkakhR1gSO8JIj';
 const AIRTABLE_API_KEY = 'pat4znoV3DLMvj93j.387c4f8141eecf1aab474da2f6f58a544cd09ec4e3fb1bd247c234edfefa64ec';
