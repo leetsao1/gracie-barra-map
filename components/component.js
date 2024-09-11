@@ -5,7 +5,6 @@ import Modal from 'react-modal';
 import styles from "../styles/style.module.css";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-
 // Airtable setup
 const AIRTABLE_BASE_ID = 'apprkakhR1gSO8JIj';
 const AIRTABLE_API_KEY = 'pat4znoV3DLMvj93j.387c4f8141eecf1aab474da2f6f58a544cd09ec4e3fb1bd247c234edfefa64ec';
@@ -32,7 +31,7 @@ function haversineDistance(coords1, coords2) {
   const [lon2, lat2] = coords2;
 
   const R = 6371e3; // Earth radius in meters
-  const φ1 = lat1 * Math.PI / 180;
+  const φ1 = lat1 * Math.PI / 180; // φ, λ in radians
   const φ2 = lat2 * Math.PI / 180;
   const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
@@ -53,12 +52,12 @@ const Component = () => {
   const [modalData, setModalData] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
-  const [allLocations, setAllLocations] = useState([]);
 
-  // Fetch Airtable data only once
+  // Function to fetch locations from Airtable with pagination
   const fetchLocations = async () => {
     let allRecords = [];
     let offset = null;
+
     try {
       do {
         const response = await fetch(
@@ -67,11 +66,16 @@ const Component = () => {
             Authorization: `Bearer ${AIRTABLE_API_KEY}`
           }
         });
+
         const data = await response.json();
         allRecords = [...allRecords, ...data.records];
         offset = data.offset;
+
       } while (offset);
+
+      console.log('Fetched locations from Airtable:', allRecords);
       return allRecords;
+
     } catch (error) {
       console.error("Error fetching data from Airtable:", error);
       return [];
@@ -107,21 +111,22 @@ const Component = () => {
   };
 
   // Get user's current location, reverse geocode it, and trigger search
-  const getUserLocation = () => {
-    return new Promise((resolve, reject) => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            resolve([longitude, latitude]);
-          },
-          (error) => reject(error),
-          { enableHighAccuracy: true }
-        );
-      } else {
-        reject("Geolocation is not supported by this browser.");
-      }
-    });
+  const getUserLocationAndSearch = async () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        const userCoords = [longitude, latitude];
+
+        const address = await reverseGeocode(userCoords);
+        setSearchAddress(address);
+
+        initializeMap(userCoords); // Initialize map centered at user's location
+        console.log("map initialized for address: "+address);
+        //runSearch(address, 50); // Trigger search automatically after setting address
+      });
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
   };
 
   // Initialize map with a center at user's location or search address
@@ -135,12 +140,23 @@ const Component = () => {
     setMap(newMap); // Store map instance in state
   };
 
-  const runSearch = async (searchCoords, radius) => {
+  const runSearch = async (addressOrCoords, radius) => {
+    console.log("running search...");
     if (!map) return; // Ensure map is initialized
+
+    const allLocations = await fetchLocations();
     const bounds = new mapboxgl.LngLatBounds();
     let hasValidCoords = false;
 
-    console.log("Running search with coordinates:", searchCoords);
+    // Geocode the search address if it's not already coordinates
+    let searchCoords;
+    if (typeof addressOrCoords === 'string') {
+      const searchResponse = await mapboxClient.forwardGeocode({ query: addressOrCoords, limit: 1 }).send();
+      if (!searchResponse.body.features.length) return;
+      searchCoords = searchResponse.body.features[0].center;
+    } else {
+      searchCoords = addressOrCoords; // Use coords directly if provided
+    }
 
     // Loop through locations and filter by radius
     for (const location of allLocations) {
@@ -150,11 +166,13 @@ const Component = () => {
       const pinColor = isPremium ? 'gold' : 'red';
 
       try {
-        const locResponse = await mapboxClient.forwardGeocode({
-          query: locAddress,
-          autocomplete: false,
-          limit: 1
-        }).send();
+        const locResponse = await mapboxClient
+          .forwardGeocode({
+            query: locAddress,
+            autocomplete: false,
+            limit: 1
+          })
+          .send();
 
         if (!locResponse.body.features.length) continue;
         const locCoords = locResponse.body.features[0].center;
@@ -164,7 +182,6 @@ const Component = () => {
 
         // If the radius is "any" or the distance is within the selected radius, add the marker
         if (radius === 'any' || distanceInMiles <= radius) {
-          console.log(`Adding pin for ${name} at ${locCoords}`);
           const marker = new mapboxgl.Marker({ color: pinColor })
             .setLngLat(locCoords)
             .setPopup(new mapboxgl.Popup().setText(name))
@@ -177,6 +194,7 @@ const Component = () => {
           bounds.extend(locCoords);
           hasValidCoords = true;
         }
+
       } catch (error) {
         console.error(`Error geocoding address: ${locAddress}`, error);
       }
@@ -188,18 +206,15 @@ const Component = () => {
     }
   };
 
+ useEffect(() => {
+    if (map) {
+      runSearch(searchAddress, searchRadius);
+    }
+  }, [map]);
+
   useEffect(() => {
-    // Fetch Airtable data and user's location in parallel
-    const loadData = async () => {
-      const [locations, userCoords] = await Promise.all([fetchLocations(), getUserLocation()]);
-      setAllLocations(locations);
-      const userAddress = await reverseGeocode(userCoords);
-      setSearchAddress(userAddress);
-      initializeMap(userCoords);
-      runSearch(userCoords, searchRadius); // Trigger search right after map initialization
-    };
-    loadData();
-  }, [searchRadius]); // Re-run search when the radius changes
+    getUserLocationAndSearch(); // On component mount, get user's location and trigger search
+  }, []);
 
   return (
     <div>
