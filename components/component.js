@@ -14,6 +14,8 @@ const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 // Mapbox access token
 mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
 
+
+
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
 const radiusOptions = [
@@ -48,8 +50,7 @@ const Component = () => {
   const mapContainer = React.useRef(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
-  const [searchAddress, setSearchAddress] = useState('');
+  const [searchAddress, setSearchAddress] = useState('New York, NY'); // Default initial address
   const [searchRadius, setSearchRadius] = useState(50);
   const [locations, setLocations] = useState([]);
 
@@ -90,20 +91,6 @@ const Component = () => {
   const closeModal = () => {
     setModalIsOpen(false);
     setModalData(null);
-  };
-
-  const getUserLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(position => {
-        const { latitude, longitude } = position.coords;
-        const userLocation = [longitude, latitude];
-        setUserLocation(userLocation);
-        setSearchAddress(`${latitude}, ${longitude}`);
-        runSearch(`${latitude}, ${longitude}`, 50); // Run initial search with default 50 miles radius
-      });
-    } else {
-      console.error("Geolocation is not supported by this browser.");
-    }
   };
 
   const runSearch = async (address, radius) => {
@@ -172,7 +159,7 @@ const Component = () => {
   };
 
   useEffect(() => {
-    getUserLocation();
+    runSearch(searchAddress, searchRadius); // Run initial search with default address and 50 miles radius
   }, []);
 
   return (
