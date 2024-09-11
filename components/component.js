@@ -50,7 +50,6 @@ const Component = () => {
   const [map, setMap] = useState(null); // Store the map instance
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
-  const [userLocation, setUserLocation] = useState(null); // Store user's current location
   const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
 
@@ -112,18 +111,17 @@ const Component = () => {
   };
 
   // Get user's current location, reverse geocode it, and trigger search
-  const getUserLocation = () => {
+  const getUserLocationAndSearch = async () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
         const userCoords = [longitude, latitude];
-        setUserLocation(userCoords);
 
         const address = await reverseGeocode(userCoords);
         setSearchAddress(address);
 
-        await initializeMap(userCoords); // Initialize map centered at user's location
-        runSearch(address, 50); // Trigger search after getting user location and address
+        initializeMap(userCoords); // Initialize map centered at user's location
+        runSearch(address, 50); // Trigger search automatically
       });
     } else {
       console.error("Geolocation is not supported by this browser.");
@@ -207,14 +205,8 @@ const Component = () => {
   };
 
   useEffect(() => {
-    getUserLocation(); // On component mount, get user's location and initialize map
+    getUserLocationAndSearch(); // On component mount, get user's location and trigger search
   }, []);
-
-  useEffect(() => {
-    if (searchAddress) {
-      runSearch(searchAddress, searchRadius); // Automatically trigger search on page load after user location is set
-    }
-  }, [searchAddress]);
 
   return (
     <div>
