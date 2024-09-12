@@ -226,31 +226,36 @@ const Component = () => {
   }, []);
 
   return (
-    <div>
+    <div className={styles.container}>
       <div className={styles.searchContainer}>
-        <input
-          type="text"
-          value={searchAddress}
-          onChange={(e) => setSearchAddress(e.target.value)}
-          placeholder="Enter address"
-        />
-        <select
-          value={searchRadius}
-          onChange={(e) => setSearchRadius(e.target.value)}
-        >
-          {radiusOptions.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <select
-          value={premiumFilter}
-          onChange={(e) => setPremiumFilter(e.target.value)}
-        >
-          {premiumOptions.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)}>Search</button>
+        <div className={styles.searchControls}>
+          <input
+            type="text"
+            value={searchAddress}
+            onChange={(e) => setSearchAddress(e.target.value)}
+            placeholder="Enter address"
+            className={styles.searchInput}
+          />
+          <select
+            value={searchRadius}
+            onChange={(e) => setSearchRadius(e.target.value)}
+            className={styles.searchSelect}
+          >
+            {radiusOptions.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <select
+            value={premiumFilter}
+            onChange={(e) => setPremiumFilter(e.target.value)}
+            className={styles.searchSelect}
+          >
+            {premiumOptions.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)} className={styles.searchButton}>Search</button>
+        </div>
       </div>
 
       <div ref={mapContainer} className={styles.mapContainer} />
