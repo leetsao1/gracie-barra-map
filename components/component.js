@@ -58,6 +58,12 @@ const Component = () => {
   const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
   const [premiumFilter, setPremiumFilter] = useState('all'); // New state for premium filter
+  const [isCollapsed, setIsCollapsed] = useState(false); // State to handle collapse/expand
+
+   // Toggle the collapsed state of the search section
+  const toggleCollapse = () => {
+    setIsCollapsed(prevState => !prevState);
+  };
 
   // Function to fetch locations from Airtable with pagination
   const fetchLocations = async () => {
@@ -213,6 +219,10 @@ const Component = () => {
     if (hasValidCoords) {
       map.fitBounds(bounds, { padding: 50 });
     }
+
+    if (window.innerWidth <= 768) {
+      setIsCollapsed(true);
+    }
   };
 
  useEffect(() => {
@@ -225,57 +235,66 @@ const Component = () => {
     getUserLocationAndSearch(); // On component mount, get user's location and trigger search
   }, []);
 
-  return (
-  <div className={styles.container}>
-    <div className={styles.searchContainer}>
-      <div className={styles.searchControls}>
-        <input
-          type="text"
-          value={searchAddress}
-          onChange={(e) => setSearchAddress(e.target.value)}
-          placeholder="Enter address"
-          className={styles.searchInput}
-        />
-        <select
-          value={searchRadius}
-          onChange={(e) => setSearchRadius(e.target.value)}
-          className={styles.searchSelect}
-        >
-          {radiusOptions.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <select
-          value={premiumFilter}
-          onChange={(e) => setPremiumFilter(e.target.value)}
-          className={styles.searchSelect}
-        >
-          {premiumOptions.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)} className={styles.searchButton}>
-          Search
-        </button>
-      </div>
-    </div>
+ return (
+    <div className={styles.container}>
+      {/* Toggle button to expand/collapse the search section */}
+      <button onClick={toggleCollapse} className={styles.toggleButton}>
+        {isCollapsed ? 'Expand Search' : 'Collapse Search'}
+      </button>
 
-    <div ref={mapContainer} className={styles.mapContainer} />
-
-    <Modal isOpen={modalIsOpen} onRequestClose={closeModal} className={styles.modalOverlay} contentLabel="Location Details">
-      {modalData && (
-        <div className={styles.modalContent}>
-          <h2>{modalData['Location Name']}</h2>
-          <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
-          <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
-          <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
-          <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
-          <button onClick={closeModal}>Close</button>
+      {/* Conditionally render the search section based on collapse state */}
+      {!isCollapsed && (
+        <div className={styles.searchContainer}>
+          <div className={styles.searchControls}>
+            <input
+              type="text"
+              value={searchAddress}
+              onChange={(e) => setSearchAddress(e.target.value)}
+              placeholder="Enter address"
+              className={styles.searchInput}
+            />
+            <select
+              value={searchRadius}
+              onChange={(e) => setSearchRadius(e.target.value)}
+              className={styles.searchSelect}
+            >
+              <option value={10}>10 miles</option>
+              <option value={25}>25 miles</option>
+              <option value={50}>50 miles</option>
+              <option value={100}>100 miles</option>
+              <option value="any">Any distance</option>
+            </select>
+            <select
+              value={premiumFilter}
+              onChange={(e) => setPremiumFilter(e.target.value)}
+              className={styles.searchSelect}
+            >
+              <option value="all">All locations</option>
+              <option value="premium">Premium only</option>
+            </select>
+            <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)} className={styles.searchButton}>
+              Search
+            </button>
+          </div>
         </div>
       )}
-    </Modal>
-  </div>
-);
+
+      <div ref={mapContainer} className={styles.mapContainer} />
+
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
+        {modalData && (
+          <div className={styles.modalContent}>
+            <h2>{modalData['Location Name']}</h2>
+            <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
+            <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
+            <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
+            <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
+            <button onClick={closeModal}>Close</button>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
 
 
 };
