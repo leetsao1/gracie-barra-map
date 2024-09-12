@@ -262,9 +262,9 @@ const Component = () => {
 
     <div ref={mapContainer} className={styles.mapContainer} />
 
-    <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
+    <Modal isOpen={modalIsOpen} onRequestClose={closeModal} className={styles.modalOverlay} contentLabel="Location Details">
       {modalData && (
-        <div>
+        <div className={styles.modalContent}>
           <h2>{modalData['Location Name']}</h2>
           <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
           <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
@@ -276,7 +276,6 @@ const Component = () => {
     </Modal>
   </div>
 );
-
 
 
 };
