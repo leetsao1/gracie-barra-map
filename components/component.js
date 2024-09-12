@@ -226,54 +226,57 @@ const Component = () => {
   }, []);
 
   return (
-    <div className={styles.container}>
-      <div className={styles.searchContainer}>
-        <div className={styles.searchControls}>
-          <input
-            type="text"
-            value={searchAddress}
-            onChange={(e) => setSearchAddress(e.target.value)}
-            placeholder="Enter address"
-            className={styles.searchInput}
-          />
-          <select
-            value={searchRadius}
-            onChange={(e) => setSearchRadius(e.target.value)}
-            className={styles.searchSelect}
-          >
-            {radiusOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <select
-            value={premiumFilter}
-            onChange={(e) => setPremiumFilter(e.target.value)}
-            className={styles.searchSelect}
-          >
-            {premiumOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)} className={styles.searchButton}>Search</button>
-        </div>
+  <div className={styles.container}>
+    <div className={styles.searchContainer}>
+      <div className={styles.searchControls}>
+        <input
+          type="text"
+          value={searchAddress}
+          onChange={(e) => setSearchAddress(e.target.value)}
+          placeholder="Enter address"
+          className={styles.searchInput}
+        />
+        <select
+          value={searchRadius}
+          onChange={(e) => setSearchRadius(e.target.value)}
+          className={styles.searchSelect}
+        >
+          {radiusOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <select
+          value={premiumFilter}
+          onChange={(e) => setPremiumFilter(e.target.value)}
+          className={styles.searchSelect}
+        >
+          {premiumOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)} className={styles.searchButton}>
+          Search
+        </button>
       </div>
-
-      <div ref={mapContainer} className={styles.mapContainer} />
-
-      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
-        {modalData && (
-          <div>
-            <h2>{modalData['Location Name']}</h2>
-            <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
-            <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
-            <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
-            <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
-            <button onClick={closeModal}>Close</button>
-          </div>
-        )}
-      </Modal>
     </div>
-  );
+
+    <div ref={mapContainer} className={styles.mapContainer} />
+
+    <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
+      {modalData && (
+        <div>
+          <h2>{modalData['Location Name']}</h2>
+          <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
+          <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
+          <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
+          <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
+          <button onClick={closeModal}>Close</button>
+        </div>
+      )}
+    </Modal>
+  </div>
+);
+
 };
 
 export default Component;
