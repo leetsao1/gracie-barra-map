@@ -25,13 +25,18 @@ const radiusOptions = [
   { value: 'any', label: 'Any distance' },
 ];
 
+const premiumOptions = [
+  { value: 'all', label: 'All locations' },
+  { value: 'premium', label: 'Premium only' },
+];
+
 // Haversine formula to calculate distance between two latitude/longitude points
 function haversineDistance(coords1, coords2) {
   const [lon1, lat1] = coords1;
   const [lon2, lat2] = coords2;
 
   const R = 6371e3; // Earth radius in meters
-  const φ1 = lat1 * Math.PI / 180; // φ, λ in radians
+  const φ1 = lat1 * Math.PI / 180;
   const φ2 = lat2 * Math.PI / 180;
   const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
@@ -52,6 +57,7 @@ const Component = () => {
   const [modalData, setModalData] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
+  const [premiumFilter, setPremiumFilter] = useState('all'); // New state for premium filter
 
   // Function to fetch locations from Airtable with pagination
   const fetchLocations = async () => {
@@ -140,7 +146,7 @@ const Component = () => {
     setMap(newMap); // Store map instance in state
   };
 
-  const runSearch = async (addressOrCoords, radius) => {
+  const runSearch = async (addressOrCoords, radius, premiumFilter) => {
     console.log("running search...");
     if (!map) return; // Ensure map is initialized
 
@@ -158,12 +164,15 @@ const Component = () => {
       searchCoords = addressOrCoords; // Use coords directly if provided
     }
 
-    // Loop through locations and filter by radius
+    // Loop through locations and filter by radius and premium status
     for (const location of allLocations) {
       const locAddress = location.fields['Address for Geolocation'];
       const name = location.fields['Location Name'];
       const isPremium = location.fields['isPremium'];
       const pinColor = isPremium ? 'gold' : 'red';
+
+      // Apply premium filter: skip non-premium locations if "premium only" is selected
+      if (premiumFilter === 'premium' && !isPremium) continue;
 
       try {
         const locResponse = await mapboxClient
@@ -208,9 +217,9 @@ const Component = () => {
 
  useEffect(() => {
     if (map) {
-      runSearch(searchAddress, searchRadius);
+      runSearch(searchAddress, searchRadius, premiumFilter);
     }
-  }, [map]);
+  }, [map, premiumFilter]);
 
   useEffect(() => {
     getUserLocationAndSearch(); // On component mount, get user's location and trigger search
@@ -233,7 +242,15 @@ const Component = () => {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
-        <button onClick={() => runSearch(searchAddress, searchRadius)}>Search</button>
+        <select
+          value={premiumFilter}
+          onChange={(e) => setPremiumFilter(e.target.value)}
+        >
+          {premiumOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)}>Search</button>
       </div>
 
       <div ref={mapContainer} className={styles.mapContainer} />
