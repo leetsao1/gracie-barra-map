@@ -42,7 +42,7 @@
 .searchButton {
     background-color: #007bff;
     color: white;
-    border: none;
+
     cursor: pointer;
     flex-grow: 0; /* Prevent the button from growing too large */
     min-width: 100px; /* Ensure button has a minimum width */
