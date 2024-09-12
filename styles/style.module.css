@@ -6,7 +6,7 @@
     width: 100%;
 }
 
-/* Search section with responsive layout */
+/* Search section */
 .searchContainer {
     display: flex;
     justify-content: center;
@@ -14,16 +14,17 @@
     padding: 10px;
     background-color: #f8f9fa;
     z-index: 1;
-    //width: 100%;
+    width: 100%;
 }
 
-/* Search controls container for desktop and mobile */
+/* Search controls container, allows wrapping on small screens */
 .searchControls {
     display: flex;
+    flex-wrap: wrap;
     width: 100%;
     max-width: 1200px;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
     justify-content: space-between;
+    align-items: center;
 }
 
 /* Search input, select boxes, and button */
@@ -33,17 +34,19 @@
     margin-bottom: 10px;
     padding: 10px;
     font-size: 14px;
-    width: calc(33% - 10px); /* Each field takes 1/3rd of the space on desktop */
-    min-width: 100px;
+    flex-grow: 1; /* Allow fields to grow/shrink based on available space */
+    min-width: 120px; /* Prevent them from becoming too small */
     box-sizing: border-box; /* Ensure padding doesn't break layout */
 }
 
-/* Button styling */
+/* Button specific styling */
 .searchButton {
     background-color: #007bff;
     color: white;
     border: none;
     cursor: pointer;
+    flex-grow: 0; /* Prevent the button from growing too large */
+    min-width: 100px; /* Ensure button has a minimum width */
 }
 
 .searchButton:hover {
