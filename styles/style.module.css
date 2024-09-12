@@ -4,6 +4,7 @@
     flex-direction: column;
     height: 100vh;
     width: 100%;
+    font-family: 'Helvetica Neue', Arial, sans-serif; /* Modern font */
 }
 
 /* Search section */
@@ -11,12 +12,15 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 10px;
-    background-color: #f8f9fa;
+    padding: 15px;
+    background-color: #ffffff;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05); /* Subtle shadow for modern effect */
     z-index: 1;
+    width: 100%;
+    border-radius: 8px;
 }
 
-/* Search controls container, allows wrapping on small screens */
+/* Search controls container */
 .searchControls {
     display: flex;
     flex-wrap: wrap;
@@ -24,32 +28,46 @@
     max-width: 1200px;
     justify-content: space-between;
     align-items: center;
+    gap: 10px; /* Gap between elements */
 }
 
 /* Search input, select boxes, and button */
 .searchInput,
 .searchSelect,
 .searchButton {
-    margin-bottom: 10px;
-    padding: 10px;
-    font-size: 14px;
+    padding: 12px 15px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    transition: all 0.3s ease;
     flex-grow: 1; /* Allow fields to grow/shrink based on available space */
     min-width: 120px; /* Prevent them from becoming too small */
     box-sizing: border-box; /* Ensure padding doesn't break layout */
+}
+
+/* Search input and select specific styling */
+.searchInput:focus,
+.searchSelect:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
+    outline: none;
 }
 
 /* Button specific styling */
 .searchButton {
     background-color: #007bff;
     color: white;
-
+    border: none;
     cursor: pointer;
     flex-grow: 0; /* Prevent the button from growing too large */
-    min-width: 100px; /* Ensure button has a minimum width */
+    min-width: 100px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
 .searchButton:hover {
     background-color: #0056b3;
+    transform: scale(1.05); /* Slight zoom on hover for modern feel */
 }
 
 /* Mobile-friendly styles */
@@ -87,19 +105,24 @@
     cursor: pointer;
 }
 
-/* Modal styling */
+/* Modern modal styling */
 .modalContent {
-    top: 50%;
-    left: 50%;
-    right: auto;
-    bottom: auto;
-    margin-right: -50%;
-    transform: translate(-50%, -50%);
-    background-color: white;
-    padding: 20px;
+    position: relative;
+    background-color: #ffffff;
+    padding: 30px;
     width: 400px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 90%;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); /* Deeper shadow for a sleek effect */
+    text-align: left;
+    font-size: 16px;
+    color: #333;
+    animation: fadeIn 0.3s ease-out; /* Fade-in animation */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .modalOverlay {
@@ -109,4 +132,24 @@
     right: 0;
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Modal close button styling */
+.modalContent button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.modalContent button:hover {
+    background-color: #0056b3;
+    transform: scale(1.05);
 }
