@@ -33,7 +33,7 @@
 
 /* Toggle button for expanding/collapsing search */
 .toggleButton {
-    display: block;
+    display: none;
     background-color: #007bff;
     color: white;
     border: none;
