@@ -94,7 +94,7 @@
     }
 
     .toggleButton {
-        display: block; /* Show on small screens */
+        display: none; /* Show on small screens */
     }
 
     .searchInput,
