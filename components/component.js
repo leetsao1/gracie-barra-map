@@ -30,6 +30,25 @@ const premiumOptions = [
   { value: 'premium', label: 'Premium only' },
 ];
 
+// Custom Modal styles to override react-modal default styles
+const customModalStyles = {
+  overlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    zIndex: 1000, // Ensure modal overlay is above other content
+  },
+  content: {
+    position: 'relative',
+    margin: 'auto',
+    width: '400px',
+    maxWidth: '90%',
+    borderRadius: '12px',
+    padding: '30px',
+    backgroundColor: '#fff',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)', // Custom box shadow
+  },
+};
+
+
 // Haversine formula to calculate distance between two latitude/longitude points
 function haversineDistance(coords1, coords2) {
   const [lon1, lat1] = coords1;
@@ -293,7 +312,7 @@ const Component = () => {
 
       <div ref={mapContainer} className={styles.mapContainer} />
 
-      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details">
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details" style={customModalStyles} // Pass custom styles here>
         {modalData && (
           <div className={styles.modalContent}>
             <h2>{modalData['Location Name']}</h2>
