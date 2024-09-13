@@ -40,7 +40,7 @@ const customModalStyles = {
     position: 'relative',
     inset: 0,
     margin: 'auto',
-    width: '400px',
+    width: '70%',
     maxWidth: '90%',
     borderRadius: '12px',
     padding: '30px',
