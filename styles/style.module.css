@@ -132,7 +132,7 @@
     cursor: pointer;
 }
 
-/* Modern modal styling */
+/* Modern modal styling 
 .modalContent {
     position: relative;
     background-color: #ffffff;
@@ -140,12 +140,12 @@
     width: 400px;
     max-width: 90%;
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); /* Deeper shadow for a sleek effect */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2); /* Deeper shadow for a sleek effect 
     text-align: left;
     font-size: 16px;
     color: #333;
-    animation: fadeIn 0.3s ease-out; /* Fade-in animation */
-}
+    animation: fadeIn 0.3s ease-out; /* Fade-in animation 
+} */
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-20px); }
