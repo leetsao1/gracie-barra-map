@@ -38,6 +38,7 @@ const customModalStyles = {
   },
   content: {
     position: 'relative',
+    inset: 0,
     margin: 'auto',
     width: '400px',
     maxWidth: '90%',
