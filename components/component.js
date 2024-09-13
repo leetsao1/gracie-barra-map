@@ -223,6 +223,11 @@ const Component = () => {
     if (window.innerWidth <= 768) {
       setIsCollapsed(true);
     }
+    if (map) {
+      setTimeout(() => {
+        map.resize(); // Resize map after the search section collapses
+      }, 300);
+    }
   };
 
  useEffect(() => {
