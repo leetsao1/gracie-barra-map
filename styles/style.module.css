@@ -93,6 +93,10 @@
         flex-direction: column;
     }
 
+    .toggleButton {
+        display: block; /* Show on small screens */
+    }
+
     .searchInput,
     .searchSelect,
     .searchButton {
