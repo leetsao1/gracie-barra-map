@@ -59,6 +59,7 @@ const Component = () => {
   const [searchRadius, setSearchRadius] = useState(50);
   const [premiumFilter, setPremiumFilter] = useState('all'); // New state for premium filter
   const [isCollapsed, setIsCollapsed] = useState(false); // State to handle collapse/expand
+  const [loading, setLoading] = useState(false); // Add loading state
 
    // Toggle the collapsed state of the search section
   const toggleCollapse = () => {
@@ -156,6 +157,8 @@ const Component = () => {
     console.log("running search...");
     if (!map) return; // Ensure map is initialized
 
+    setLoading(true); // Set loading to true when search starts
+
     const allLocations = await fetchLocations();
     const bounds = new mapboxgl.LngLatBounds();
     let hasValidCoords = false;
@@ -228,6 +231,8 @@ const Component = () => {
         map.resize(); // Resize map after the search section collapses
       }, 300);
     }
+
+     setLoading(false); // Set loading to false when search ends
   };
 
  useEffect(() => {
@@ -280,6 +285,8 @@ const Component = () => {
             <button onClick={() => runSearch(searchAddress, searchRadius, premiumFilter)} className={styles.searchButton}>
               Search
             </button>
+              {/* Conditionally render loading gif if search is in progress */}
+            {loading && <img src="/loading.gif" alt="Loading..." className={styles.loadingGif} />}
           </div>
         </div>
       )}
