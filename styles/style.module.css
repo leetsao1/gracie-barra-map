@@ -33,23 +33,20 @@
 
 /* Toggle button for expanding/collapsing search */
 .toggleButton {
-    display: none;
-    position: absolute;
-    top: 10px;
-    left: 10px;
+    display: block;
     background-color: #007bff;
     color: white;
     border: none;
     padding: 10px 20px;
     border-radius: 8px;
     cursor: pointer;
+    margin-bottom: 10px;
     z-index: 10;
 }
 
 .toggleButton:hover {
     background-color: #0056b3;
 }
-
 
 /* Search input, select boxes, and button */
 .searchInput,
