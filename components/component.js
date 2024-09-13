@@ -312,7 +312,7 @@ const Component = () => {
 
       <div ref={mapContainer} className={styles.mapContainer} />
 
-      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details" style={customModalStyles} // Pass custom styles here>
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details" style={customModalStyles} >
         {modalData && (
           <div className={styles.modalContent}>
             <h2>{modalData['Location Name']}</h2>
