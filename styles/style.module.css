@@ -23,7 +23,7 @@
 /* Search controls container */
 .searchControls {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* Prevent elements from wrapping into multiple lines on desktop */
     width: 100%;
     max-width: 1200px;
     justify-content: space-between;
@@ -88,13 +88,14 @@
 }
 
 /* Mobile-friendly styles */
-@media (min-width: 768px) {
+@media (max-width: 768px) {
     .searchControls {
-        flex-direction: column;
+        flex-direction: column; /* Stack elements vertically on smaller screens */
+        flex-wrap: wrap; /* Allow wrapping on mobile */
     }
 
     .toggleButton {
-        display: none; /* Show on small screens */
+        display: block; /* Show the toggle button on mobile */
     }
 
     .searchInput,
