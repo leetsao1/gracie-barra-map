@@ -7,6 +7,13 @@
     font-family: 'Helvetica Neue', Arial, sans-serif; /* Modern font */
 }
 
+/* Loading GIF styling */
+.loadingGif {
+    width: 30px;
+    height: 30px;
+    margin-left: 10px; /* Space between search button and loading gif */
+}
+
 /* Search section */
 .searchContainer {
     display: flex;
