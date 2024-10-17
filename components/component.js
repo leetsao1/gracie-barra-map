@@ -323,9 +323,11 @@ const Component = () => {
             <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
             <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
             <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
-            <div className={styles.alertBlock}>
-              <strong>Premium Location:</strong> Gracie Barra Premium Schools are academies that meet a higher standard of excellence within the Gracie Barra network. These schools go beyond the basic operational standards, reflecting the highest level of compliance with Gracie Barra’s methodology, facilities, and service quality.
-            </div>
+            {modalData['isPremium'] && (
+              <div className="alert alert-info" role="alert">
+                <strong>Premium Location:</strong> Gracie Barra Premium Schools are academies that meet a higher standard of excellence within the Gracie Barra network. These schools go beyond the basic operational standards, reflecting the highest level of compliance with Gracie Barra’s methodology, facilities, and service quality.
+              </div>
+            )}
             <button onClick={closeModal}>Close</button>
           </div>
         )}
