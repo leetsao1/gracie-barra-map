@@ -8,12 +8,12 @@ import 'bootstrap/dist/css/bootstrap.min.css'; // Import Bootstrap styles
 
 // Airtable setup
 const AIRTABLE_BASE_ID = 'apprkakhR1gSO8JIj';
-const AIRTABLE_API_KEY = process.env.AIRTABLE_KEY;
+const AIRTABLE_API_KEY = 'pat4znoV3DLMvj93j.387c4f8141eecf1aab474da2f6f58a544cd09ec4e3fb1bd247c234edfefa64ec';
 const AIRTABLE_TABLE_NAME = 'Locations';
 const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 
 // Mapbox access token
-mapboxgl.accessToken = process.env.MAPBOX_KEY;
+mapboxgl.accessToken = 'pk.eyJ1IjoiZW5yaXF1ZXRjaGF0IiwiYSI6ImNrczVvdnJ5eTFlNWEycHJ3ZXlqZjFhaXUifQ.71mYPeoLXSujYlj4X5bQnQ';
 
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
