@@ -15,7 +15,6 @@ const AIRTABLE_VIEW_NAME = 'US'; // Specify the view
 // Mapbox access token
 mapboxgl.accessToken = process.env.MAPBOX_KEY;
 
-
 const mapboxClient = mapboxSdk({ accessToken: mapboxgl.accessToken });
 
 const radiusOptions = [
