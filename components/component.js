@@ -352,13 +352,13 @@ const Component = () => {
             <div style={{ flex: 1 }}>
               <h2>Instructor Details</h2>
               <p><strong>Name:</strong> {instructorData['Instructor']}</p>
+              <button onClick={closeInstructorModal} style={{ marginTop: '20px' }}>Close</button>
             </div>
             {instructorData['Photo (from Instructors)'] && instructorData['Photo (from Instructors)'][0] && (
               <div style={{ marginLeft: '20px' }}>
                 <img src={instructorData['Photo (from Instructors)'][0].url} alt={instructorData['Instructor']} style={{ width: '150px', height: 'auto', borderRadius: '8px' }} />
               </div>
             )}
-            <button onClick={closeInstructorModal} style={{ marginTop: '20px' }}>Close</button>
           </div>
         )}
       </Modal>
