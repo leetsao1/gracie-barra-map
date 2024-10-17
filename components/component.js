@@ -4,7 +4,6 @@ import mapboxSdk from '@mapbox/mapbox-sdk/services/geocoding';
 import Modal from 'react-modal';
 import styles from "../styles/style.module.css";
 import 'mapbox-gl/dist/mapbox-gl.css';
-import 'bootstrap/dist/css/bootstrap.min.css'; // Import Bootstrap styles
 
 // Airtable setup
 const AIRTABLE_BASE_ID = 'apprkakhR1gSO8JIj';
@@ -32,7 +31,7 @@ const premiumOptions = [
 ];
 
 // Custom Modal styles to override react-modal default styles
-const customModalStyles = (pinColor) => ({
+const customModalStyles = {
   overlay: {
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     zIndex: 1000, // Ensure modal overlay is above other content
@@ -46,10 +45,10 @@ const customModalStyles = (pinColor) => ({
     borderRadius: '12px',
     padding: '30px',
     backgroundColor: '#fff',
-    border: `3px solid ${pinColor}`, // Set border color to match pin color
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)', // Custom box shadow
   },
-});
+};
+
 
 // Haversine formula to calculate distance between two latitude/longitude points
 function haversineDistance(coords1, coords2) {
@@ -57,13 +56,13 @@ function haversineDistance(coords1, coords2) {
   const [lon2, lat2] = coords2;
 
   const R = 6371e3; // Earth radius in meters
-  const ϕ1 = lat1 * Math.PI / 180;
-  const ϕ2 = lat2 * Math.PI / 180;
-  const Δϕ = (lat2 - lat1) * Math.PI / 180;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-  const a = Math.sin(Δϕ / 2) * Math.sin(Δϕ / 2) +
-            Math.cos(ϕ1) * Math.cos(ϕ2) *
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
             Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
@@ -81,7 +80,6 @@ const Component = () => {
   const [premiumFilter, setPremiumFilter] = useState('all'); // New state for premium filter
   const [isCollapsed, setIsCollapsed] = useState(false); // State to handle collapse/expand
   const [loading, setLoading] = useState(false); // Add loading state
-  const [pinColor, setPinColor] = useState('red');
 
    // Toggle the collapsed state of the search section
   const toggleCollapse = () => {
@@ -117,9 +115,8 @@ const Component = () => {
     }
   };
 
-  const openModal = (data, color) => {
+  const openModal = (data) => {
     setModalData(data);
-    setPinColor(color);
     setModalIsOpen(true);
   };
 
@@ -229,7 +226,7 @@ const Component = () => {
             .addTo(map);
 
           marker.getElement().addEventListener('click', () => {
-            openModal(location.fields, pinColor);
+            openModal(location.fields);
           });
 
           bounds.extend(locCoords);
@@ -316,7 +313,7 @@ const Component = () => {
 
       <div ref={mapContainer} className={styles.mapContainer} />
 
-      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details" style={customModalStyles(pinColor)} >
+      <Modal isOpen={modalIsOpen} onRequestClose={closeModal} contentLabel="Location Details" style={customModalStyles} >
         {modalData && (
           <div className={styles.modalContent}>
             <h2>{modalData['Location Name']}</h2>
@@ -324,17 +321,14 @@ const Component = () => {
             <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
             <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
             <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
-            {modalData['isPremium'] && (
-              <div className="alert alert-warning" role="alert">
-                <strong>Premium Location:</strong> Gracie Barra Premium Schools are academies that meet a higher standard of excellence within the Gracie Barra network. These schools go beyond the basic operational standards, reflecting the highest level of compliance with Gracie Barra’s methodology, facilities, and service quality.
-              </div>
-            )}
             <button onClick={closeModal}>Close</button>
           </div>
         )}
       </Modal>
     </div>
   );
+
+
 };
 
 export default Component;
