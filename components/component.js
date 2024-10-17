@@ -348,13 +348,17 @@ const Component = () => {
 
       <Modal isOpen={instructorModalIsOpen} onRequestClose={closeInstructorModal} contentLabel="Instructor Details" style={customModalStyles(pinColor)}>
         {instructorData && (
-          <div className={styles.modalContent}>
-            <h2>Instructor Details</h2>
-            <p><strong>Name:</strong> {instructorData['Instructor']}</p>
+          <div className={styles.modalContent} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ flex: 1 }}>
+              <h2>Instructor Details</h2>
+              <p><strong>Name:</strong> {instructorData['Instructor']}</p>
+            </div>
             {instructorData['Photo (from Instructors)'] && instructorData['Photo (from Instructors)'][0] && (
-              <img src={instructorData['Photo (from Instructors)'][0].url} alt={instructorData['Instructor']} className={styles.instructorPhoto} />
+              <div style={{ marginLeft: '20px' }}>
+                <img src={instructorData['Photo (from Instructors)'][0].url} alt={instructorData['Instructor']} style={{ width: '150px', height: 'auto', borderRadius: '8px' }} />
+              </div>
             )}
-            <button onClick={closeInstructorModal}>Close</button>
+            <button onClick={closeInstructorModal} style={{ marginTop: '20px' }}>Close</button>
           </div>
         )}
       </Modal>
