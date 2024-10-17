@@ -352,6 +352,8 @@ const Component = () => {
             <div style={{ flex: 1 }}>
               <h2>Instructor Details</h2>
               <p><strong>Name:</strong> {instructorData['Instructor']}</p>
+              <p><strong>Certification Date:</strong> {instructorData['Certification Date (from Instructors)']}</p>
+              <p><strong>Bio:</strong> {instructorData['Bio (from Instructors)']}</p>
               <button onClick={closeInstructorModal} style={{ marginTop: '20px' }}>Close</button>
             </div>
             {instructorData['Photo (from Instructors)'] && instructorData['Photo (from Instructors)'][0] && (
