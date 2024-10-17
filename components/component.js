@@ -76,6 +76,8 @@ const Component = () => {
   const [map, setMap] = useState(null); // Store the map instance
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
+  const [instructorModalIsOpen, setInstructorModalIsOpen] = useState(false);
+  const [instructorData, setInstructorData] = useState(null);
   const [searchAddress, setSearchAddress] = useState('');
   const [searchRadius, setSearchRadius] = useState(50);
   const [premiumFilter, setPremiumFilter] = useState('all'); // New state for premium filter
@@ -126,6 +128,16 @@ const Component = () => {
   const closeModal = () => {
     setModalIsOpen(false);
     setModalData(null);
+  };
+
+  const openInstructorModal = (instructor) => {
+    setInstructorData(instructor);
+    setInstructorModalIsOpen(true);
+  };
+
+  const closeInstructorModal = () => {
+    setInstructorModalIsOpen(false);
+    setInstructorData(null);
   };
 
   // Convert coordinates to an address using Mapbox reverse geocoding
@@ -321,15 +333,28 @@ const Component = () => {
           <div className={styles.modalContent}>
             <h2>{modalData['Location Name']}</h2>
             <p><strong>Full Address:</strong> {modalData['Full Address']}</p>
-            <p><strong>Instructor:</strong> {modalData['Instructor']}</p>
+            <p><strong>Instructor:</strong> <a href="#" onClick={() => openInstructorModal(modalData)}>{modalData['Instructor']}</a></p>
             <p><strong>Phone Number:</strong> {modalData['Phone Number']}</p>
             <p><strong>Website:</strong> <a href={modalData['Website']} target="_blank" rel="noopener noreferrer">{modalData['Website']}</a></p>
             {modalData['isPremium'] && (
-              <div className="alert alert-warning" role="alert">
+              <div className="alert alert-info" role="alert">
                 <strong>Premium Location:</strong> Gracie Barra Premium Schools are academies that meet a higher standard of excellence within the Gracie Barra network. These schools go beyond the basic operational standards, reflecting the highest level of compliance with Gracie Barra’s methodology, facilities, and service quality.
               </div>
             )}
             <button onClick={closeModal}>Close</button>
+          </div>
+        )}
+      </Modal>
+
+      <Modal isOpen={instructorModalIsOpen} onRequestClose={closeInstructorModal} contentLabel="Instructor Details" style={customModalStyles(pinColor)}>
+        {instructorData && (
+          <div className={styles.modalContent}>
+            <h2>Instructor Details</h2>
+            <p><strong>Name:</strong> {instructorData['Instructor']}</p>
+            {instructorData['Photo (from Instructors)'] && instructorData['Photo (from Instructors)'][0] && (
+              <img src={instructorData['Photo (from Instructors)'][0].url} alt={instructorData['Instructor']} className={styles.instructorPhoto} />
+            )}
+            <button onClick={closeInstructorModal}>Close</button>
           </div>
         )}
       </Modal>
