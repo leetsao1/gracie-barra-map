@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import Modal from 'react-modal';
-import Component from '../components/component';
+import React, { useEffect, useState } from "react";
+import Modal from "react-modal";
+import Component from "../components/component";
+import "mapbox-gl/dist/mapbox-gl.css";
 
 const Index = () => {
   // Ensure modal works with Next.js
   useEffect(() => {
-    Modal.setAppElement('body');  // Set this to 'body' since there's no #root
+    Modal.setAppElement("body"); // Set this to 'body' since there's no #root
   }, []);
 
   return (
@@ -21,4 +22,3 @@ const Index = () => {
 };
 
 export default Index;
- 

@@ -1,135 +1,676 @@
 /* Container for the entire component */
 .container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    width: 100%;
-    font-family: 'Helvetica Neue', Arial, sans-serif; /* Modern font */
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  overflow: hidden;
+}
+
+.mainContent {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* Loading GIF styling */
 .loadingGif {
-    width: 30px;
-    height: 30px;
-    margin-left: 10px; /* Space between search button and loading gif */
+  width: 30px;
+  height: 30px;
+  margin-left: 10px; /* Space between search button and loading gif */
 }
 
-/* Search section */
+/* Search section as nav bar */
 .searchContainer {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 15px;
-    background-color: #ffffff;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.05); /* Subtle shadow for modern effect */
-    z-index: 1;
-    transition: height 0.3s ease-out, padding 0.3s ease-out; /* Smooth transition */
-    border-radius: 8px;
+  position: relative;
+  width: 100%;
+  background: white;
+  padding: 15px 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+  flex-shrink: 0;
+  min-height: 120px; /* Ensure minimum height for search container */
+}
+
+.searchContainer.collapsed {
+  transform: translateY(-100%);
 }
 
 /* Search controls container */
 .searchControls {
-    display: flex;
-    flex-wrap: nowrap; /* Prevent elements from wrapping into multiple lines on desktop */
-    width: 100%;
-    max-width: 1200px;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px; /* Gap between elements */
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* Toggle button for expanding/collapsing search */
-.toggleButton {
-    display: none;
-    background-color: grey;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    cursor: pointer;
-    z-index: 10;
+/* Search input group */
+.searchInputGroup {
+  display: flex;
+  gap: 10px;
+  width: 100%;
 }
 
-.toggleButton:hover {
-    background-color: #0056b3;
+.searchInput {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 16px;
 }
 
-/* Search input, select boxes, and button */
-.searchInput,
-.searchSelect,
-.searchButton {
-    padding: 12px 15px;
-    font-size: 16px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #f9f9f9;
-    transition: all 0.3s ease;
-    flex-grow: 1; /* Allow fields to grow/shrink based on available space */
-    min-width: 120px; /* Prevent them from becoming too small */
-    box-sizing: border-box; /* Ensure padding doesn't break layout */
+/* Filter group */
+.filterGroup {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-/* Search input and select specific styling */
-.searchInput:focus,
+.searchSelect {
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: white;
+  font-size: 16px;
+  min-width: 150px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
 .searchSelect:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
-    outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  outline: none;
 }
 
-/* Button specific styling */
+/* Buttons */
+.searchButton,
+.locationButton,
+.toggleButton {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .searchButton {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    cursor: pointer;
-    flex-grow: 0; /* Prevent the button from growing too large */
-    min-width: 100px;
-    transition: background-color 0.3s ease, transform 0.3s ease;
+  background-color: #2196f3;
+  color: white;
 }
 
 .searchButton:hover {
-    background-color: #0056b3;
-    transform: scale(1.05); /* Slight zoom on hover for modern feel */
+  background-color: #1976d2;
+  transform: translateY(-1px);
 }
 
-/* Mobile-friendly styles */
+.locationButton {
+  background-color: #4caf50;
+  color: white;
+  padding: 12px;
+  min-width: 48px;
+}
+
+.locationButton:hover {
+  background-color: #388e3c;
+  transform: translateY(-1px);
+}
+
+.toggleButton {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 4; /* Increased z-index to be above results list */
+  background-color: white;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggleButton:hover {
+  background-color: #f5f5f5;
+  transform: translateY(-1px);
+}
+
+/* Location Icon */
+.locationIcon {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+/* Results List */
+.resultsList {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 350px;
+  height: 100vh;
+  background: white;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 20px;
+  transform: translateX(0);
+  transition: transform 0.3s ease-in-out;
+  margin-top: 120px; /* Add space for the search container */
+}
+
+.resultsList.hidden {
+  transform: translateX(100%);
+}
+
+.resultsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.resultsHeader h3 {
+  margin: 0;
+  font-size: 1.2em;
+  color: #333;
+}
+
+.closeResults {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: #666;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.closeResults:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.resultItem {
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.resultItem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.resultItem.selected {
+  border-color: #2196f3;
+  background-color: #e3f2fd;
+}
+
+.resultHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.resultHeader h4 {
+  margin: 0;
+  font-size: 1.1em;
+  color: #333;
+}
+
+.distance {
+  font-size: 0.9em;
+  color: #666;
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.premiumBadge {
+  display: inline-block;
+  background: #ffd700;
+  color: #333;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+/* Loading States */
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  color: #666;
+}
+
+.loadingSpinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #2196f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error Message */
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.errorIcon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+/* Map container wrapper with global styles */
+.mapWrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin-right: 350px; /* Make space for results panel */
+}
+
+.mapWrapper :global(.mapboxgl-popup) {
+  max-width: 320px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+}
+
+.mapWrapper :global(.mapboxgl-popup-content) {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+  overflow: hidden;
+}
+
+.mapWrapper :global(.mapboxgl-popup-close-button) {
+  padding: 8px !important;
+  font-size: 20px !important;
+  color: #666 !important;
+  background: transparent !important;
+  border: none !important;
+  z-index: 2;
+  right: 4px !important;
+  top: 4px !important;
+  transition: color 0.2s;
+}
+
+.mapWrapper :global(.mapboxgl-popup-close-button:hover) {
+  color: #333 !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-radius: 50%;
+}
+
+.mapWrapper :global(.mapboxgl-popup-tip) {
+  border-width: 12px !important;
+  margin-top: -1px;
+}
+
+/* User location marker styles */
+.userMarker {
+  width: 32px; /* Increased from 24px */
+  height: 32px; /* Increased from 24px */
+  position: relative;
+  border-radius: 50%;
+  background: rgba(33, 150, 243, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.userMarkerInner {
+  width: 16px; /* Increased from 12px */
+  height: 16px; /* Increased from 12px */
+  background: #2196f3;
+  border-radius: 50%;
+  box-shadow: 0 0 15px #2196f3; /* Increased glow */
+}
+
+.userMarkerPulse {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(33, 150, 243, 0.4);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4); /* Increased scale for bigger pulse */
+    opacity: 0;
+  }
+}
+
+/* Location card styles */
+.locationCard {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 400px;
+}
+
+.locationHeader {
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.locationHeader h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.locationBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.premiumBadge {
+  background: linear-gradient(45deg, #ffd700, #ffc107);
+  color: #000;
+}
+
+.regularBadge {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.locationContent {
+  padding: 16px 20px;
+}
+
+.locationInfo {
+  margin-bottom: 12px;
+}
+
+.locationInfo h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.locationInfo p {
+  margin: 0;
+  color: #333;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.locationLinks {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+}
+
+.locationLinks a {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #2196f3;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-right: 8px;
+  transition: background-color 0.2s;
+}
+
+.locationLinks a:hover {
+  background: #1976d2;
+}
+
+/* Modal Styles */
+.modalContent {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.modalContent h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 10px;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
-    .searchControls {
-        flex-direction: column; /* Stack elements vertically on smaller screens */
-        flex-wrap: wrap; /* Allow wrapping on mobile */
-    }
+  .searchContainer {
+    padding: 10px;
+    min-height: auto;
+  }
 
-    .toggleButton {
-        display: block; /* Show the toggle button on mobile */
-    }
+  .searchInputGroup {
+    flex-direction: column;
+  }
 
-    .searchInput,
-    .searchSelect,
-    .searchButton {
-        width: 100%; /* Full width on smaller screens */
-        margin-bottom: 10px; /* Space between inputs */
-    }
+  .filterGroup {
+    flex-direction: column;
+  }
+
+  .searchInput,
+  .searchSelect,
+  .searchButton {
+    width: 100%;
+  }
+
+  .resultsList {
+    width: 100%;
+    height: 50vh;
+    top: auto;
+    bottom: 0;
+    margin-top: 0;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .toggleButton {
+    top: auto;
+    bottom: 20px;
+  }
+
+  .modalContent {
+    padding: 15px;
+  }
+
+  .mapWrapper {
+    margin-right: 0;
+  }
+
+  .mapContainer {
+    width: 100%;
+  }
 }
 
-/* Map container takes the remaining space */
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slideIn {
+  animation: slideIn 0.3s ease-in-out;
+}
+
+/* Map section */
+.mapSection {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+}
+
+/* Map container */
 .mapContainer {
-    flex: 1;
-    width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #f5f5f5;
 }
 
-/* Mapbox canvas adjustments */
-.mapboxgl-canvas {
-    height: 100%;
-    width: 100%;
+/* Map overlay */
+.mapOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 2;
+}
+
+/* Loading state */
+.mapLoading {
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  min-width: 200px;
+}
+
+.loadingProgress {
+  margin-top: 15px;
+  width: 100%;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.loadingBar {
+  height: 4px;
+  background-color: #2196f3;
+  transition: width 0.3s ease-in-out;
+}
+
+.loadingProgress p {
+  margin: 8px 0 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Error state */
+.mapError {
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.retryButton {
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.retryButton:hover {
+  background-color: #1976d2;
+}
+
+/* Ensure mapbox canvas fills container */
+.mapContainer .mapboxgl-canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Custom marker icon styling */
 .mapboxgl-marker {
-    background-image: url('/marker-icon.png');
-    background-size: cover;
-    width: 30px;
-    height: 30px;
-    cursor: pointer;
+  background-image: url("/marker-icon.png");
+  background-size: cover;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
 }
 
 /* Modern modal styling 
@@ -148,35 +689,181 @@
 } */
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modalOverlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.75);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Modal close button styling */
 .modalContent button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-top: 20px;
-    transition: background-color 0.3s ease, transform 0.3s ease;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
 .modalContent button:hover {
-    background-color: #0056b3;
-    transform: scale(1.05);
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+.locationDetailsPanel {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 600px;
+  background: white;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  transition: transform 0.3s ease-in-out;
+  padding: 20px;
+}
+
+.locationDetailsPanel.hidden {
+  transform: translate(-50%, 100%);
+}
+
+.locationDetailsPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.locationDetailsPanelTitle {
+  font-size: 1.5em;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.closeButton:hover {
+  background-color: #f5f5f5;
+}
+
+.locationDetailsContent {
+  display: grid;
+  gap: 15px;
+}
+
+.locationDetailsField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.locationDetailsLabel {
+  font-weight: 500;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.locationDetailsValue {
+  color: #333;
+  font-size: 1em;
+}
+
+.locationDetailsValue a {
+  color: #2196f3;
+  text-decoration: none;
+}
+
+.locationDetailsValue a:hover {
+  text-decoration: underline;
+}
+
+.premiumBadgeInPanel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #ffd700;
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 0.9em;
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+.premiumBadgeInPanel svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Dim the map when panel is open */
+.mapDimOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 999;
+}
+
+.mapDimOverlay.visible {
+  opacity: 1;
+}
+
+.premiumDescription {
+  margin-top: 12px;
+  padding: 12px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 215, 0, 0.1),
+    rgba(255, 215, 0, 0.05)
+  );
+  border-left: 3px solid #ffd700;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #333;
+  text-align: left;
+}
+
+/* Adjust map container for results panel */
+@media (min-width: 769px) {
+  .mapContainer {
+    width: calc(100% - 350px); /* Adjust width to account for results panel */
+  }
 }
