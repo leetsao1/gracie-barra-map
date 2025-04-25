@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding";
 import Modal from "react-modal";
 import styles from "../styles/style.module.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "bootstrap/dist/css/bootstrap.min.css";
+import Image from "next/image";
 
 // Airtable setup
 const AIRTABLE_BASE_ID = "apprkakhR1gSO8JIj";
@@ -21,6 +22,7 @@ if (!MAPBOX_TOKEN) {
     "Mapbox token is missing! Make sure NEXT_PUBLIC_MAPBOX_TOKEN is set in your environment variables."
   );
 } else {
+  console.log("Mapbox token found:", MAPBOX_TOKEN.substring(0, 8) + "...");
   mapboxgl.accessToken = MAPBOX_TOKEN;
 }
 
@@ -189,6 +191,11 @@ const Component = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [activeCard, setActiveCard] = useState(null);
   const [locationCache, setLocationCache] = useState(new Map());
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchStatus, setSearchStatus] = useState("");
+  const searchResultsRef = useRef(null);
+  const mapRef = useRef(null);
 
   // First, define createLocationPopupContent with useCallback
   const createLocationPopupContent = useCallback((location) => {
@@ -297,42 +304,54 @@ const Component = () => {
 
   const openPopup = useCallback(
     (popup, coordinates, locationId, locationData) => {
-      if (!locationData || !coordinates) {
+      if (!locationData || !coordinates || !mapInstance.current) {
+        console.log("Missing required data for popup:", {
+          locationData,
+          coordinates,
+          mapInstance: !!mapInstance.current,
+        });
         return;
       }
 
       // First, close all existing popups
       closeAllPopups();
 
-      // Create and open new popup
-      const newPopup = new mapboxgl.Popup({
-        closeButton: true,
-        maxWidth: "350px",
-        closeOnClick: false,
-        offset: [0, -10],
-      });
+      try {
+        // Create and open new popup
+        const newPopup = new mapboxgl.Popup({
+          closeButton: true,
+          maxWidth: "350px",
+          closeOnClick: false,
+          offset: [0, -10],
+        });
 
-      const content = createLocationPopupContent(locationData);
-      if (!content) return;
+        const content = createLocationPopupContent(locationData);
+        if (!content) {
+          console.log("No content generated for popup");
+          return;
+        }
 
-      newPopup
-        .setLngLat(coordinates)
-        .setHTML(content)
-        .addTo(mapInstance.current);
+        newPopup
+          .setLngLat(coordinates)
+          .setHTML(content)
+          .addTo(mapInstance.current);
 
-      // Set up close handler
-      newPopup.on("close", () => {
-        setActivePopup(null);
-        setActiveCard(null);
-        setModalData(null);
-        setShowLocationDetails(false);
-      });
+        // Set up close handler
+        newPopup.on("close", () => {
+          setActivePopup(null);
+          setActiveCard(null);
+          setModalData(null);
+          setShowLocationDetails(false);
+        });
 
-      // Update states
-      setActivePopup(newPopup);
-      setActiveCard(locationId);
-      setModalData(locationData);
-      setShowLocationDetails(true);
+        // Update states
+        setActivePopup(newPopup);
+        setActiveCard(locationId);
+        setModalData(locationData);
+        setShowLocationDetails(true);
+      } catch (error) {
+        console.error("Error creating popup:", error);
+      }
     },
     [mapInstance, createLocationPopupContent, closeAllPopups]
   );
@@ -845,7 +864,7 @@ const Component = () => {
     }
   };
 
-  // Update the runSearch function to find closest matching location
+  // Update the runSearch function
   const runSearch = async (
     addressOrCoords,
     radius,
@@ -854,8 +873,11 @@ const Component = () => {
   ) => {
     if (!mapInstance.current) return;
 
+    setIsSearching(true);
     setLoading(true);
     setSearchResults([]);
+    setLocationError(null);
+    setIsResultsVisible(true);
     closeAllPopups();
 
     try {
@@ -1088,34 +1110,59 @@ const Component = () => {
       );
     } finally {
       setLoading(false);
+      setIsSearching(false);
       if (mapInstance.current) {
         mapInstance.current.resize();
       }
     }
   };
 
-  // Update handleLocationSelect
+  // Update handleLocationSelect to include proper error handling
   const handleLocationSelect = useCallback(
     (location) => {
       if (!location || !location.coordinates) {
+        console.log("Invalid location data:", location);
         return;
       }
 
       // Prevent event bubbling
       event?.stopPropagation();
 
+      // Close any existing popups first
+      closeAllPopups();
+
       setSelectedLocation(location);
+      setActiveCard(location.uniqueId);
 
-      mapInstance.current.flyTo({
-        center: location.coordinates,
-        zoom: 14,
-        essential: true,
-      });
+      // Smooth map transition
+      if (mapInstance.current) {
+        mapInstance.current.flyTo({
+          center: location.coordinates,
+          zoom: 14,
+          duration: 1000,
+          essential: true,
+        });
 
-      // Open popup with the location data
-      openPopup(null, location.coordinates, location.uniqueId, location);
+        // Open popup with the location data after a short delay to ensure smooth animation
+        setTimeout(() => {
+          openPopup(null, location.coordinates, location.uniqueId, location);
+        }, 300);
+      }
     },
-    [mapInstance, openPopup]
+    [mapInstance, openPopup, closeAllPopups]
+  );
+
+  // Update the result item click handler
+  const handleResultItemClick = useCallback(
+    (location) => {
+      handleLocationSelect(location);
+
+      // On mobile, collapse the results panel
+      if (window.innerWidth <= 768) {
+        setIsResultsVisible(false);
+      }
+    },
+    [handleLocationSelect]
   );
 
   // Initialize map on component mount
@@ -1124,6 +1171,13 @@ const Component = () => {
     let loadingInterval;
 
     const initMap = async () => {
+      console.log("Starting map initialization...");
+      console.log(
+        "Mapbox token status:",
+        !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+      );
+      console.log("Map container status:", !!mapContainer.current);
+
       // Check for Mapbox token first
       if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
         console.error("Mapbox token is missing in environment variables");
@@ -1138,10 +1192,7 @@ const Component = () => {
       mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
       if (!mapInstance.current && mapContainer.current) {
-        console.log(
-          "Starting map initialization with token:",
-          process.env.NEXT_PUBLIC_MAPBOX_TOKEN.substring(0, 8) + "..."
-        );
+        console.log("Creating new map instance...");
         setIsMapLoading(true);
 
         // Start loading progress simulation
@@ -1155,6 +1206,7 @@ const Component = () => {
         }, 200);
 
         try {
+          console.log("Initializing map with configuration...");
           // Create new map instance with minimal initial configuration
           mapInstance.current = new mapboxgl.Map({
             container: mapContainer.current,
@@ -1170,6 +1222,8 @@ const Component = () => {
             logoPosition: "bottom-right",
           });
 
+          console.log("Map instance created, waiting for load...");
+
           // Set a timeout for map loading with a longer duration (30 seconds)
           const mapLoadPromise = new Promise((resolve, reject) => {
             timeoutId = setTimeout(() => {
@@ -1178,6 +1232,7 @@ const Component = () => {
 
             // Listen for both style.load and load events
             const handleLoad = () => {
+              console.log("Map load event received!");
               clearTimeout(timeoutId);
               mapInstance.current.off("style.load", handleLoad);
               mapInstance.current.off("load", handleLoad);
@@ -1205,7 +1260,7 @@ const Component = () => {
             })
           );
 
-          console.log("Map successfully loaded");
+          console.log("Map successfully loaded and initialized!");
           setMap(mapInstance.current);
           setMapInitialized(true);
           setIsMapLoading(false);
@@ -1221,6 +1276,11 @@ const Component = () => {
           setIsMapLoading(false);
           if (loadingInterval) clearInterval(loadingInterval);
         }
+      } else {
+        console.log("Map instance or container not ready:", {
+          instance: !!mapInstance.current,
+          container: !!mapContainer.current,
+        });
       }
     };
 
@@ -1266,231 +1326,282 @@ const Component = () => {
     }
   }, [map, closeAllPopups]);
 
+  const handleCloseResults = () => {
+    setIsResultsVisible(false);
+    setSearchResults([]);
+  };
+
+  const handleKeyDown = (e, location) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleLocationSelect(location);
+    }
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      e.preventDefault();
+      runSearch();
+    }
+  };
+
+  const handleSearch = async () => {
+    setSearchStatus("Searching...");
+    try {
+      await runSearch(searchQuery, searchRadius, premiumFilter);
+      const resultCount = searchResults.length;
+      setSearchStatus(
+        `Found ${resultCount} ${resultCount === 1 ? "location" : "locations"}`
+      );
+    } catch (error) {
+      setSearchStatus("Search failed. Please try again.");
+      console.error("Search error:", error);
+    }
+  };
+
   return (
     <div className={styles.container}>
-      {/* Search section */}
-      <div
-        className={`${styles.searchContainer} ${
-          isSearchCollapsed ? styles.collapsed : ""
-        }`}
-      >
+      <a href="#main-content" className={styles.skipLink}>
+        Skip to main content
+      </a>
+
+      <div className={styles.searchContainer}>
         <div className={styles.searchControls}>
-          <div className={styles.searchInputGroup}>
-            <input
-              type="text"
-              value={searchAddress}
-              onChange={(e) => setSearchAddress(e.target.value)}
-              placeholder="Enter address or location"
-              className={styles.searchInput}
-              aria-label="Search address"
-            />
-            <button
-              onClick={getUserLocation}
-              className={styles.locationButton}
-              title="Find my location"
-              aria-label="Find my location"
-              disabled={loading}
-            >
-              <svg className={styles.locationIcon} viewBox="0 0 24 24">
-                <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
-              </svg>
-            </button>
-          </div>
-
-          <div className={styles.filterGroup}>
-            <select
-              value={searchRadius}
-              onChange={(e) => setSearchRadius(e.target.value)}
-              className={styles.searchSelect}
-              aria-label="Search radius"
-            >
-              {radiusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={premiumFilter}
-              onChange={(e) => setPremiumFilter(e.target.value)}
-              className={styles.searchSelect}
-              aria-label="Location type filter"
-            >
-              {premiumOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={() =>
-                runSearch(searchAddress, searchRadius, premiumFilter, true)
-              }
-              className={styles.searchButton}
-              disabled={loading}
-            >
-              {loading ? (
-                <div className={styles.loadingSpinner} />
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" width="20" height="20">
-                    <path
-                      fill="currentColor"
-                      d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-                    />
-                  </svg>
-                  Search
-                </>
-              )}
-            </button>
-          </div>
-
-          {locationError && (
-            <div className={styles.errorMessage}>
-              <svg className={styles.errorIcon} viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-              </svg>
-              <div className={styles.errorContent}>
-                <p>{locationError}</p>
-                {locationError.includes("Unable to") && !isRetrying && (
-                  <button
-                    onClick={getUserLocation}
-                    className={styles.retryButton}
-                    disabled={loading}
-                  >
-                    Try Again
-                  </button>
-                )}
-              </div>
+          <div className={styles.headerSection}>
+            <div className={styles.mapLogo}>
+              <Image
+                src="/gb-logo.png"
+                alt="Gracie Barra Logo"
+                width={150}
+                height={40}
+                priority={true}
+                style={{ width: "auto", height: "40px" }}
+              />
             </div>
-          )}
-        </div>
-      </div>
+            <h1 className={styles.mainTitle}>Global Map</h1>
+          </div>
 
-      {/* Map section */}
-      <div className={styles.mapSection}>
-        <div className={styles.mapWrapper}>
-          <div ref={mapContainer} className={styles.mapContainer} />
+          <div className={styles.searchSection}>
+            <label htmlFor="location-search" className={styles.searchLabel}>
+              Search for a location
+            </label>
+            <div className={styles.searchInputGroup}>
+              <input
+                id="location-search"
+                type="text"
+                className={styles.searchInput}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Search by city, state, or zip code"
+                aria-describedby="search-status"
+              />
+              <button
+                onClick={getUserLocation}
+                className={styles.locationButton}
+                title="Find my location"
+                aria-label="Find my location"
+                disabled={loading}
+              >
+                <svg className={styles.locationIcon} viewBox="0 0 24 24">
+                  <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
+                </svg>
+              </button>
+            </div>
 
-          {/* Loading overlay */}
-          {isMapLoading && (
-            <div className={styles.mapOverlay}>
-              <div className={styles.mapLoading}>
-                <div className={styles.loadingSpinner} />
-                <div className={styles.loadingProgress}>
+            <div className={styles.filterGroup}>
+              <select
+                value={searchRadius}
+                onChange={(e) => setSearchRadius(e.target.value)}
+                className={styles.searchSelect}
+                aria-label="Search radius"
+              >
+                {radiusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={premiumFilter}
+                onChange={(e) => setPremiumFilter(e.target.value)}
+                className={styles.searchSelect}
+                aria-label="Location type filter"
+              >
+                {premiumOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={handleSearch}
+                className={styles.searchButton}
+                disabled={isSearching || !searchQuery.trim()}
+                aria-label={isSearching ? "Searching..." : "Search"}
+              >
+                {isSearching ? (
                   <div
-                    className={styles.loadingBar}
-                    style={{ width: `${mapLoadingProgress}%` }}
+                    className={styles.spinner}
+                    role="status"
+                    aria-label="Loading"
                   />
-                  <p>Loading map... {mapLoadingProgress}%</p>
+                ) : (
+                  "Search"
+                )}
+              </button>
+            </div>
+
+            <div
+              id="search-status"
+              className={styles.srOnly}
+              role="status"
+              aria-live="polite"
+            >
+              {searchStatus}
+            </div>
+
+            {locationError && (
+              <div className={styles.errorMessage} role="alert">
+                <svg className={styles.errorIcon} viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+                <div className={styles.errorContent}>
+                  <p>{locationError}</p>
+                  {locationError.includes("Unable to") && !isRetrying && (
+                    <button
+                      onClick={getUserLocation}
+                      className={styles.retryButton}
+                      disabled={loading}
+                    >
+                      Try Again
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Error overlay */}
-          {mapError && !isMapLoading && (
-            <div className={styles.mapOverlay}>
-              <div className={styles.mapError}>
-                <p>{mapError}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className={styles.retryButton}
-                >
-                  Retry
-                </button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Results list */}
-      <div
-        className={`${styles.resultsList} ${
-          !isResultsVisible || !searchResults.length ? styles.hidden : ""
-        }`}
-      >
-        <div className={styles.resultsHeader}>
-          <h3>Search Results ({searchResults.length})</h3>
-          <button
-            onClick={toggleResults}
-            className={styles.closeResults}
-            aria-label="Close results"
-          >
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <path
-                fill="currentColor"
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {searchResults.map((location) => {
-          const uniqueKey = `${location.uniqueId || ""}-${
-            location.index || ""
-          }-${Date.now()}`;
-
-          return (
-            <div
-              key={uniqueKey}
-              className={`${styles.resultItem} ${
-                selectedLocation === location ? styles.selected : ""
-              } ${activeCard === location.uniqueId ? styles.active : ""} ${
-                styles.fadeIn
-              }`}
-              style={{ animationDelay: `${location.index * 0.05}s` }}
-              onClick={() => {
-                if (location && location.coordinates) {
-                  handleLocationSelect({
-                    ...location,
-                    fields: location,
-                    index: location.index,
-                  });
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              onKeyPress={(e) => {
-                if (e.key === "Enter" && location && location.coordinates) {
-                  handleLocationSelect({
-                    ...location,
-                    fields: location,
-                    index: location.index,
-                  });
-                }
-              }}
+      <main id="main-content" className={styles.mainContent}>
+        <div
+          ref={searchResultsRef}
+          className={`${styles.resultsList} ${
+            searchResults.length > 0 && isResultsVisible ? styles.visible : ""
+          }`}
+          role="region"
+          aria-label="Search results"
+          aria-expanded={searchResults.length > 0}
+        >
+          <div className={styles.resultsHeader}>
+            <h2>Search Results</h2>
+            <button
+              onClick={handleCloseResults}
+              className={styles.closeResults}
+              aria-label="Close search results"
             >
-              <div className={styles.resultHeader}>
-                <h4>{location["Location Name"]}</h4>
-                <span className={styles.distance}>
-                  {location.distance.toFixed(1)} miles
-                </span>
-              </div>
-              <p>{location["Full Address"]}</p>
-              {location.isPremium && (
-                <span className={styles.premiumBadge}>
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    style={{ marginRight: "4px" }}
-                  >
-                    <path
-                      fill="currentColor"
-                      d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+              ×
+            </button>
+          </div>
+
+          {Array.isArray(searchResults) &&
+            searchResults.map((location) => {
+              if (!location) return null;
+
+              // Safely access location data
+              const locationData = location.fields || location;
+              const locationName =
+                locationData["Location Name"] || "Unknown Location";
+              const fullAddress =
+                locationData["Full Address"] || "No address available";
+              const isPremium = locationData["isPremium"] || false;
+              const distance =
+                typeof location.distance === "number"
+                  ? `${location.distance.toFixed(1)} miles`
+                  : "Unknown distance";
+
+              return (
+                <div
+                  key={location.uniqueId || `${locationName}-${Date.now()}`}
+                  className={`${styles.resultItem} ${
+                    activeCard === location.uniqueId ? styles.active : ""
+                  } ${styles.fadeIn}`}
+                  style={{ animationDelay: `${location.index * 0.05}s` }}
+                  onClick={() => handleLocationSelect(location)}
+                  onKeyDown={(e) => handleKeyDown(e, location)}
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={selectedLocation?.id === location.id}
+                >
+                  <div className={styles.resultHeader}>
+                    <h4>{locationName}</h4>
+                    <span className={styles.distance}>{distance}</span>
+                  </div>
+                  <p>{fullAddress}</p>
+                  {isPremium && (
+                    <span className={styles.premiumBadge}>
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        style={{ marginRight: "4px" }}
+                      >
+                        <path
+                          fill="currentColor"
+                          d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                        />
+                      </svg>
+                      Premium
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+        </div>
+
+        <div className={styles.mapSection}>
+          <div className={styles.mapWrapper}>
+            <div
+              ref={mapContainer}
+              className={styles.mapContainer}
+              role="application"
+              aria-label="Interactive map showing Gracie Barra locations"
+            />
+
+            {isMapLoading && (
+              <div className={styles.mapOverlay}>
+                <div className={styles.mapLoading}>
+                  <div className={styles.loadingSpinner} />
+                  <div className={styles.loadingProgress}>
+                    <div
+                      className={styles.loadingBar}
+                      style={{ width: `${mapLoadingProgress}%` }}
                     />
-                  </svg>
-                  Premium
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                    <p>Loading map... {mapLoadingProgress}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mapError && !isMapLoading && (
+              <div className={styles.mapOverlay}>
+                <div className={styles.mapError}>
+                  <p>{mapError}</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className={styles.retryButton}
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
 
       {/* Instructor Modal */}
       <Modal
