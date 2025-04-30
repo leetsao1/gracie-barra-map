@@ -11,7 +11,7 @@ import Image from "next/image";
 const AIRTABLE_BASE_ID = "apprkakhR1gSO8JIj";
 const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
 const AIRTABLE_TABLE_NAME = "Locations";
-const AIRTABLE_VIEW_NAME = "US"; // Specify the view
+const AIRTABLE_VIEW_NAME = "Grid view"; // Changed from "US" to "Grid view" to show all locations
 
 // Mapbox access token
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -356,9 +356,24 @@ const Component = () => {
     [mapInstance, createLocationPopupContent, closeAllPopups]
   );
 
-  // Batch geocoding function
+  // Update batchGeocodeLocations to use the correct field IDs
   const batchGeocodeLocations = async (locations) => {
     const validLocations = locations.filter((loc) => {
+      // Check if we have direct coordinates
+      if (loc.fields["fldA9pKfnRoHfIbWT"] && loc.fields["fldyFcMeVUwAkNlM5"]) {
+        const lat = parseFloat(loc.fields["fldA9pKfnRoHfIbWT"]);
+        const lng = parseFloat(loc.fields["fldyFcMeVUwAkNlM5"]);
+        return (
+          !isNaN(lat) &&
+          !isNaN(lng) &&
+          lat >= -90 &&
+          lat <= 90 &&
+          lng >= -180 &&
+          lng <= 180
+        );
+      }
+
+      // Fallback to address check for geocoding
       const address = loc.fields["Address for Geolocation"];
       return (
         address &&
@@ -368,27 +383,48 @@ const Component = () => {
       );
     });
 
-    // First check cache for all locations
-    const uncachedLocations = validLocations.filter(
+    // Process locations with direct coordinates first
+    const directLocations = validLocations
+      .filter(
+        (loc) =>
+          loc.fields["fldA9pKfnRoHfIbWT"] && loc.fields["fldyFcMeVUwAkNlM5"]
+      )
+      .map((loc) => ({
+        ...loc,
+        coordinates: [
+          parseFloat(loc.fields["fldyFcMeVUwAkNlM5"]), // Longitude
+          parseFloat(loc.fields["fldA9pKfnRoHfIbWT"]), // Latitude
+        ],
+      }));
+
+    // Only geocode locations without coordinates
+    const locationsToGeocode = validLocations.filter(
+      (loc) =>
+        !loc.fields["fldA9pKfnRoHfIbWT"] || !loc.fields["fldyFcMeVUwAkNlM5"]
+    );
+
+    // First check cache for locations that need geocoding
+    const uncachedLocations = locationsToGeocode.filter(
       (loc) => !locationCache.has(loc.fields["Address for Geolocation"])
     );
 
     if (uncachedLocations.length === 0) {
-      return validLocations.map((loc) => ({
+      const geocodedLocations = locationsToGeocode.map((loc) => ({
         ...loc,
         coordinates: locationCache.get(loc.fields["Address for Geolocation"]),
       }));
+      return [...directLocations, ...geocodedLocations];
     }
 
-    // Process in parallel batches of 5 to balance speed and rate limits
-    const batchSize = 5;
-    const batches = [];
-
-    for (let i = 0; i < uncachedLocations.length; i += batchSize) {
-      batches.push(uncachedLocations.slice(i, i + batchSize));
-    }
-
+    // Process remaining locations that need geocoding
     try {
+      const batchSize = 5;
+      const batches = [];
+
+      for (let i = 0; i < uncachedLocations.length; i += batchSize) {
+        batches.push(uncachedLocations.slice(i, i + batchSize));
+      }
+
       const results = await Promise.all(
         batches.map(async (batch) => {
           const batchPromises = batch.map(async (location) => {
@@ -399,39 +435,15 @@ const Component = () => {
                 .forwardGeocode({
                   query: address,
                   limit: 1,
-                  types: ["address", "place", "poi", "country", "region"],
+                  types: ["address", "place", "poi"],
                   language: ["en"],
-                  countries: [
-                    "US",
-                    "CA",
-                    "MX",
-                    "BR",
-                    "CO",
-                    "AR",
-                    "CL",
-                    "PE",
-                    "EC",
-                    "VE",
-                    "UY",
-                    "PY",
-                    "BO",
-                    "CR",
-                    "PA",
-                    "DO",
-                    "PR",
-                    "GT",
-                    "SV",
-                    "HN",
-                    "NI",
-                  ],
-                  autocomplete: true,
-                  fuzzyMatch: true,
+                  autocomplete: false,
+                  fuzzyMatch: false,
                 })
                 .send();
 
               if (response.body.features.length) {
                 const coords = response.body.features[0].center;
-                // Update cache
                 setLocationCache((prev) => new Map(prev).set(address, coords));
                 return { ...location, coordinates: coords };
               }
@@ -447,7 +459,7 @@ const Component = () => {
       );
 
       // Add cached locations
-      const cachedResults = validLocations
+      const cachedResults = locationsToGeocode
         .filter((loc) =>
           locationCache.has(loc.fields["Address for Geolocation"])
         )
@@ -456,10 +468,11 @@ const Component = () => {
           coordinates: locationCache.get(loc.fields["Address for Geolocation"]),
         }));
 
-      return [...results.flat(), ...cachedResults];
+      // Combine direct coordinates with geocoded results
+      return [...directLocations, ...results.flat(), ...cachedResults];
     } catch (error) {
       console.error("Error in batch geocoding:", error);
-      return [];
+      return directLocations; // Return at least the direct coordinate locations
     }
   };
 
@@ -492,6 +505,8 @@ const Component = () => {
       "Website",
       "Instructor",
       "isPremium",
+      "fldA9pKfnRoHfIbWT", // Latitude field
+      "fldyFcMeVUwAkNlM5", // Longitude field
     ];
 
     const fieldsParam = fields
@@ -1359,6 +1374,82 @@ const Component = () => {
     }
   };
 
+  const showAllLocations = async () => {
+    setSearchStatus("Loading all locations...");
+    try {
+      const allLocations = await fetchLocations(true);
+      const geocodedLocations = await batchGeocodeLocations(allLocations);
+
+      // Clear existing markers
+      if (mapInstance.current) {
+        const markers = document.getElementsByClassName("mapboxgl-marker");
+        while (markers[0]) {
+          markers[0].remove();
+        }
+      }
+
+      // Process and show all locations
+      const results = geocodedLocations
+        .filter((location) => location?.coordinates)
+        .map((location, index) => {
+          const isPremium = location.fields["isPremium"];
+          const marker = new mapboxgl.Marker({
+            color: isPremium ? "#FFD700" : "#FF0000",
+            scale: isPremium ? 1.2 : 1,
+          })
+            .setLngLat(location.coordinates)
+            .addTo(mapInstance.current);
+
+          const uniqueId = `${location.id || ""}-${index}-${
+            location.fields["Location Name"] || ""
+          }-${location.fields["Full Address"] || ""}`.replace(
+            /[^a-zA-Z0-9]/g,
+            "-"
+          );
+
+          marker.getElement().addEventListener("click", (e) => {
+            e.stopPropagation();
+            handleLocationSelect({
+              ...location.fields,
+              coordinates: location.coordinates,
+              id: uniqueId,
+              index,
+              uniqueId,
+            });
+          });
+
+          return {
+            ...location.fields,
+            uniqueId,
+            originalId: location.id,
+            index,
+            coordinates: location.coordinates,
+            marker,
+          };
+        });
+
+      setSearchResults(results);
+      setSearchStatus(`Showing all ${results.length} locations`);
+      setIsResultsVisible(true);
+
+      // Fit map to show all locations
+      if (results.length > 0 && mapInstance.current) {
+        const bounds = new mapboxgl.LngLatBounds();
+        results.forEach((location) => {
+          bounds.extend(location.coordinates);
+        });
+
+        mapInstance.current.fitBounds(bounds, {
+          padding: 50,
+          maxZoom: 12,
+        });
+      }
+    } catch (error) {
+      console.error("Error showing all locations:", error);
+      setSearchStatus("Failed to load all locations. Please try again.");
+    }
+  };
+
   return (
     <div className={styles.container}>
       <a href="#main-content" className={styles.skipLink}>
@@ -1410,6 +1501,14 @@ const Component = () => {
             </div>
 
             <div className={styles.filterGroup}>
+              <button
+                onClick={showAllLocations}
+                className={`${styles.searchButton} ${styles.allLocationsButton}`}
+                disabled={isSearching}
+                aria-label="Show all locations"
+              >
+                All Locations
+              </button>
               <select
                 value={searchRadius}
                 onChange={(e) => setSearchRadius(e.target.value)}

@@ -1,0 +1,19 @@
+.searchButton {
+  /* existing styles */
+}
+
+.allLocationsButton {
+  background-color: #4caf50;
+  color: white;
+  margin-right: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.allLocationsButton:hover {
+  background-color: #45a049;
+}
+
+.allLocationsButton:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
