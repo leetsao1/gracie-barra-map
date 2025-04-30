@@ -1620,7 +1620,7 @@ const Component = () => {
               const distance =
                 typeof location.distance === "number"
                   ? `${location.distance.toFixed(1)} miles`
-                  : "Unknown distance";
+                  : null;
 
               return (
                 <div
@@ -1637,7 +1637,9 @@ const Component = () => {
                 >
                   <div className={styles.resultHeader}>
                     <h4>{locationName}</h4>
-                    <span className={styles.distance}>{distance}</span>
+                    {distance && (
+                      <span className={styles.distance}>{distance}</span>
+                    )}
                   </div>
                   <p>{fullAddress}</p>
                   {isPremium && (
