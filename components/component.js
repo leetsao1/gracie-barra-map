@@ -1550,6 +1550,34 @@ const Component = () => {
                   "Search"
                 )}
               </button>
+
+              {searchResults.length > 0 && (
+                <button
+                  onClick={() => setIsResultsVisible(!isResultsVisible)}
+                  className={`${styles.searchButton} ${styles.toggleResultsButton}`}
+                  aria-label={
+                    isResultsVisible ? "Hide results" : "Show results"
+                  }
+                  title={isResultsVisible ? "Hide results" : "Show results"}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                    style={{ marginRight: "4px" }}
+                  >
+                    {isResultsVisible ? (
+                      <path d="M19 9l-7 7-7-7" />
+                    ) : (
+                      <path d="M5 15l7-7 7 7" />
+                    )}
+                  </svg>
+                  Results ({searchResults.length})
+                </button>
+              )}
             </div>
 
             <div
@@ -1585,27 +1613,6 @@ const Component = () => {
       </div>
 
       <main id="main-content" className={styles.mainContent}>
-        {!isResultsVisible && searchResults.length > 0 && (
-          <button
-            onClick={() => setIsResultsVisible(true)}
-            className={styles.toggleResultsButton}
-            aria-label="Show search results"
-            title="Show search results"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="24"
-              height="24"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-            >
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
-            Results ({searchResults.length})
-          </button>
-        )}
-
         <div
           ref={searchResultsRef}
           className={`${styles.resultsList} ${
