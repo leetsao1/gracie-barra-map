@@ -91,3 +91,35 @@
   max-height: calc(100vh - 180px);
   padding: 8px 0;
 }
+
+.showResultsButton {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.showResultsButton:hover {
+  background: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.showResultsIcon {
+  opacity: 0.7;
+}
+
+.showResultsButton:hover .showResultsIcon {
+  opacity: 1;
+}
