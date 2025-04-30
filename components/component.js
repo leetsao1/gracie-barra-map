@@ -1343,7 +1343,6 @@ const Component = () => {
 
   const handleCloseResults = () => {
     setIsResultsVisible(false);
-    setSearchResults([]);
   };
 
   const handleKeyDown = (e, location) => {
@@ -1591,16 +1590,19 @@ const Component = () => {
             onClick={() => setIsResultsVisible(true)}
             className={styles.toggleResultsButton}
             aria-label="Show search results"
+            title="Show search results"
           >
             <svg
               viewBox="0 0 24 24"
-              fill="none"
+              width="24"
+              height="24"
               stroke="currentColor"
               strokeWidth="2"
+              fill="none"
             >
-              <path d="M4 6h16M4 12h16M4 18h16" />
+              <path d="M3 12h18M3 6h18M3 18h18" />
             </svg>
-            Show Results ({searchResults.length})
+            Results ({searchResults.length})
           </button>
         )}
 
