@@ -1590,77 +1590,90 @@ const Component = () => {
           ref={searchResultsRef}
           className={`${styles.resultsList} ${
             searchResults.length > 0 && isResultsVisible ? styles.visible : ""
-          }`}
+          } ${!isResultsVisible ? styles.minimized : ""}`}
           role="region"
           aria-label="Search results"
-          aria-expanded={searchResults.length > 0}
+          aria-expanded={isResultsVisible}
         >
           <div className={styles.resultsHeader}>
-            <h2>Search Results</h2>
-            <button
-              onClick={handleCloseResults}
-              className={styles.closeResults}
-              aria-label="Close search results"
-            >
-              ×
-            </button>
+            <h2>Search Results ({searchResults.length})</h2>
+            <div className={styles.resultsControls}>
+              <button
+                onClick={() => setIsResultsVisible(!isResultsVisible)}
+                className={styles.toggleResults}
+                aria-label={
+                  isResultsVisible ? "Minimize results" : "Expand results"
+                }
+              >
+                {isResultsVisible ? "−" : "+"}
+              </button>
+              <button
+                onClick={handleCloseResults}
+                className={styles.closeResults}
+                aria-label="Close search results"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
-          {Array.isArray(searchResults) &&
-            searchResults.map((location) => {
-              if (!location) return null;
+          <div className={styles.resultsContent}>
+            {Array.isArray(searchResults) &&
+              searchResults.map((location) => {
+                if (!location) return null;
 
-              // Safely access location data
-              const locationData = location.fields || location;
-              const locationName =
-                locationData["Location Name"] || "Unknown Location";
-              const fullAddress =
-                locationData["Full Address"] || "No address available";
-              const isPremium = locationData["isPremium"] || false;
-              const distance =
-                typeof location.distance === "number"
-                  ? `${location.distance.toFixed(1)} miles`
-                  : null;
+                // Safely access location data
+                const locationData = location.fields || location;
+                const locationName =
+                  locationData["Location Name"] || "Unknown Location";
+                const fullAddress =
+                  locationData["Full Address"] || "No address available";
+                const isPremium = locationData["isPremium"] || false;
+                const distance =
+                  typeof location.distance === "number"
+                    ? `${location.distance.toFixed(1)} miles`
+                    : null;
 
-              return (
-                <div
-                  key={location.uniqueId || `${locationName}-${Date.now()}`}
-                  className={`${styles.resultItem} ${
-                    activeCard === location.uniqueId ? styles.active : ""
-                  } ${styles.fadeIn}`}
-                  style={{ animationDelay: `${location.index * 0.05}s` }}
-                  onClick={() => handleLocationSelect(location)}
-                  onKeyDown={(e) => handleKeyDown(e, location)}
-                  tabIndex={0}
-                  role="button"
-                  aria-pressed={selectedLocation?.id === location.id}
-                >
-                  <div className={styles.resultHeader}>
-                    <h4>{locationName}</h4>
-                    {distance && (
-                      <span className={styles.distance}>{distance}</span>
+                return (
+                  <div
+                    key={location.uniqueId || `${locationName}-${Date.now()}`}
+                    className={`${styles.resultItem} ${
+                      activeCard === location.uniqueId ? styles.active : ""
+                    } ${styles.fadeIn}`}
+                    style={{ animationDelay: `${location.index * 0.05}s` }}
+                    onClick={() => handleLocationSelect(location)}
+                    onKeyDown={(e) => handleKeyDown(e, location)}
+                    tabIndex={0}
+                    role="button"
+                    aria-pressed={selectedLocation?.id === location.id}
+                  >
+                    <div className={styles.resultHeader}>
+                      <h4>{locationName}</h4>
+                      {distance && (
+                        <span className={styles.distance}>{distance}</span>
+                      )}
+                    </div>
+                    <p>{fullAddress}</p>
+                    {isPremium && (
+                      <span className={styles.premiumBadge}>
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          style={{ marginRight: "4px" }}
+                        >
+                          <path
+                            fill="currentColor"
+                            d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                          />
+                        </svg>
+                        Premium
+                      </span>
                     )}
                   </div>
-                  <p>{fullAddress}</p>
-                  {isPremium && (
-                    <span className={styles.premiumBadge}>
-                      <svg
-                        viewBox="0 0 24 24"
-                        width="16"
-                        height="16"
-                        style={{ marginRight: "4px" }}
-                      >
-                        <path
-                          fill="currentColor"
-                          d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                        />
-                      </svg>
-                      Premium
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+          </div>
         </div>
 
         <div className={styles.mapSection}>
