@@ -1586,38 +1586,35 @@ const Component = () => {
       </div>
 
       <main id="main-content" className={styles.mainContent}>
-        <div
-          ref={searchResultsRef}
-          className={`${styles.resultsList} ${
-            searchResults.length > 0 && isResultsVisible ? styles.visible : ""
-          } ${!isResultsVisible ? styles.minimized : ""}`}
-          role="region"
-          aria-label="Search results"
-          aria-expanded={isResultsVisible}
-        >
-          <div className={styles.resultsHeader}>
-            <h2>Search Results ({searchResults.length})</h2>
-            <div className={styles.resultsControls}>
-              <button
-                onClick={() => setIsResultsVisible(!isResultsVisible)}
-                className={styles.toggleResults}
-                aria-label={
-                  isResultsVisible ? "Minimize results" : "Expand results"
-                }
-              >
-                {isResultsVisible ? "−" : "+"}
-              </button>
-              <button
-                onClick={handleCloseResults}
-                className={styles.closeResults}
-                aria-label="Close search results"
-              >
-                ×
-              </button>
-            </div>
-          </div>
+        {searchResults.length > 0 && (
+          <button
+            onClick={() => setIsResultsVisible(!isResultsVisible)}
+            className={styles.resultsToggle}
+            aria-label={`${isResultsVisible ? "Hide" : "Show"} ${
+              searchResults.length
+            } results`}
+          >
+            {searchResults.length} Results
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              className={`${styles.toggleIcon} ${
+                isResultsVisible ? styles.iconUp : styles.iconDown
+              }`}
+            >
+              <path fill="currentColor" d="M7 10l5 5 5-5z" />
+            </svg>
+          </button>
+        )}
 
-          <div className={styles.resultsContent}>
+        {searchResults.length > 0 && isResultsVisible && (
+          <div
+            ref={searchResultsRef}
+            className={styles.resultsList}
+            role="region"
+            aria-label="Search results"
+          >
             {Array.isArray(searchResults) &&
               searchResults.map((location) => {
                 if (!location) return null;
@@ -1674,28 +1671,6 @@ const Component = () => {
                 );
               })}
           </div>
-        </div>
-
-        {/* Add Show Results button */}
-        {searchResults.length > 0 && !isResultsVisible && (
-          <button
-            onClick={() => setIsResultsVisible(true)}
-            className={styles.showResultsButton}
-            aria-label={`Show ${searchResults.length} results`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              className={styles.showResultsIcon}
-            >
-              <path
-                fill="currentColor"
-                d="M3 17h18v-2H3v2zm0-5h18v-2H3v2zm0-5h18V5H3v2z"
-              />
-            </svg>
-            Show Results ({searchResults.length})
-          </button>
         )}
 
         <div className={styles.mapSection}>
