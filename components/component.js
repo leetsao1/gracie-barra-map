@@ -1586,92 +1586,100 @@ const Component = () => {
       </div>
 
       <main id="main-content" className={styles.mainContent}>
-        {searchResults.length > 0 && (
+        {!isResultsVisible && searchResults.length > 0 && (
           <button
-            onClick={() => setIsResultsVisible(!isResultsVisible)}
-            className={styles.resultsToggle}
-            aria-label={`${isResultsVisible ? "Hide" : "Show"} ${
-              searchResults.length
-            } results`}
+            onClick={() => setIsResultsVisible(true)}
+            className={styles.toggleResultsButton}
+            aria-label="Show search results"
           >
-            {searchResults.length} Results
             <svg
               viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              className={`${styles.toggleIcon} ${
-                isResultsVisible ? styles.iconUp : styles.iconDown
-              }`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
             >
-              <path fill="currentColor" d="M7 10l5 5 5-5z" />
+              <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
+            Show Results ({searchResults.length})
           </button>
         )}
 
-        {searchResults.length > 0 && isResultsVisible && (
-          <div
-            ref={searchResultsRef}
-            className={styles.resultsList}
-            role="region"
-            aria-label="Search results"
-          >
-            {Array.isArray(searchResults) &&
-              searchResults.map((location) => {
-                if (!location) return null;
+        <div
+          ref={searchResultsRef}
+          className={`${styles.resultsList} ${
+            searchResults.length > 0 && isResultsVisible ? styles.visible : ""
+          }`}
+          role="region"
+          aria-label="Search results"
+          aria-expanded={searchResults.length > 0}
+        >
+          <div className={styles.resultsHeader}>
+            <h2>Search Results</h2>
+            <button
+              onClick={handleCloseResults}
+              className={styles.closeResults}
+              aria-label="Close search results"
+            >
+              ×
+            </button>
+          </div>
 
-                // Safely access location data
-                const locationData = location.fields || location;
-                const locationName =
-                  locationData["Location Name"] || "Unknown Location";
-                const fullAddress =
-                  locationData["Full Address"] || "No address available";
-                const isPremium = locationData["isPremium"] || false;
-                const distance =
-                  typeof location.distance === "number"
-                    ? `${location.distance.toFixed(1)} miles`
-                    : null;
+          {Array.isArray(searchResults) &&
+            searchResults.map((location) => {
+              if (!location) return null;
 
-                return (
-                  <div
-                    key={location.uniqueId || `${locationName}-${Date.now()}`}
-                    className={`${styles.resultItem} ${
-                      activeCard === location.uniqueId ? styles.active : ""
-                    } ${styles.fadeIn}`}
-                    style={{ animationDelay: `${location.index * 0.05}s` }}
-                    onClick={() => handleLocationSelect(location)}
-                    onKeyDown={(e) => handleKeyDown(e, location)}
-                    tabIndex={0}
-                    role="button"
-                    aria-pressed={selectedLocation?.id === location.id}
-                  >
-                    <div className={styles.resultHeader}>
-                      <h4>{locationName}</h4>
-                      {distance && (
-                        <span className={styles.distance}>{distance}</span>
-                      )}
-                    </div>
-                    <p>{fullAddress}</p>
-                    {isPremium && (
-                      <span className={styles.premiumBadge}>
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="16"
-                          height="16"
-                          style={{ marginRight: "4px" }}
-                        >
-                          <path
-                            fill="currentColor"
-                            d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                          />
-                        </svg>
-                        Premium
-                      </span>
+              // Safely access location data
+              const locationData = location.fields || location;
+              const locationName =
+                locationData["Location Name"] || "Unknown Location";
+              const fullAddress =
+                locationData["Full Address"] || "No address available";
+              const isPremium = locationData["isPremium"] || false;
+              const distance =
+                typeof location.distance === "number"
+                  ? `${location.distance.toFixed(1)} miles`
+                  : null;
+
+              return (
+                <div
+                  key={location.uniqueId || `${locationName}-${Date.now()}`}
+                  className={`${styles.resultItem} ${
+                    activeCard === location.uniqueId ? styles.active : ""
+                  } ${styles.fadeIn}`}
+                  style={{ animationDelay: `${location.index * 0.05}s` }}
+                  onClick={() => handleLocationSelect(location)}
+                  onKeyDown={(e) => handleKeyDown(e, location)}
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={selectedLocation?.id === location.id}
+                >
+                  <div className={styles.resultHeader}>
+                    <h4>{locationName}</h4>
+                    {distance && (
+                      <span className={styles.distance}>{distance}</span>
                     )}
                   </div>
-                );
-              })}
-          </div>
-        )}
+                  <p>{fullAddress}</p>
+                  {isPremium && (
+                    <span className={styles.premiumBadge}>
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        style={{ marginRight: "4px" }}
+                      >
+                        <path
+                          fill="currentColor"
+                          d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                        />
+                      </svg>
+                      Premium
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+        </div>
 
         <div className={styles.mapSection}>
           <div className={styles.mapWrapper}>
