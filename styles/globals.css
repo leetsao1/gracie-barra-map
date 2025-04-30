@@ -1,2 +1,14 @@
 @import "mapbox-gl/dist/mapbox-gl.css";
 @import "bootstrap/dist/css/bootstrap.min.css";
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+#__next {
+  width: 100%;
+  overflow-x: hidden;
+}
