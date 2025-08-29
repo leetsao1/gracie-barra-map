@@ -1,6 +1,7 @@
 /**
  * Service for interacting with Airtable API
  */
+import { haversineDistance } from "../components/utils/distance.js";
 
 const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;

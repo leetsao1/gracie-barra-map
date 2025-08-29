@@ -2,7 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ["graciebarra.com"],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'graciebarra.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
   transpilePackages: ["mapbox-gl"],
 };
