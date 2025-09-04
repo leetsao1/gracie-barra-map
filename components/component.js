@@ -8,10 +8,16 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import Image from "next/image";
 
 // Airtable setup
-const AIRTABLE_BASE_ID = "apprkakhR1gSO8JIj";
+const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
-const AIRTABLE_TABLE_NAME = "Locations";
-const AIRTABLE_VIEW_NAME = "Grid view"; // Changed from "US" to "Grid view" to show all locations
+const AIRTABLE_TABLE_NAME =
+  process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME || "Locations";
+const AIRTABLE_VIEW_NAME =
+  process.env.NEXT_PUBLIC_AIRTABLE_VIEW_NAME || "Grid view";
+const LATITUDE_FIELD =
+  process.env.NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD || "fldA9pKfnRoHfIbWT";
+const LONGITUDE_FIELD =
+  process.env.NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD || "fldyFcMeVUwAkNlM5";
 
 // Mapbox access token
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -389,8 +395,8 @@ const Component = () => {
       .map((loc) => ({
         ...loc,
         coordinates: [
-          parseFloat(loc.fields["fldyFcMeVUwAkNlM5"]), // Longitude
-          parseFloat(loc.fields["fldA9pKfnRoHfIbWT"]), // Latitude
+          parseFloat(loc.fields[LONGITUDE_FIELD]), // Longitude
+          parseFloat(loc.fields[LATITUDE_FIELD]), // Latitude
         ],
       }));
 
@@ -502,8 +508,8 @@ const Component = () => {
       "Website",
       "Instructor",
       "isPremium",
-      "fldA9pKfnRoHfIbWT", // Latitude field
-      "fldyFcMeVUwAkNlM5", // Longitude field
+      LATITUDE_FIELD, // Latitude field
+      LONGITUDE_FIELD, // Longitude field
     ];
 
     const fieldsParam = fields

@@ -21,32 +21,42 @@ An interactive map application for finding Gracie Barra locations across the Uni
 ## Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone git@github.com:leetsao1/gracie-barra-map.git
    cd gracie-barra-map
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Environment Variables**
    Create a `.env.local` file in the root directory with the following variables:
+
    ```
    # Airtable Configuration
-   NEXT_PUBLIC_AIRTABLE_BASE_ID=apprkakhR1gSO8JIj
+   NEXT_PUBLIC_AIRTABLE_BASE_ID=your_airtable_base_id_here
    NEXT_PUBLIC_AIRTABLE_API_KEY=your_airtable_api_key_here
-   
+   NEXT_PUBLIC_AIRTABLE_TABLE_NAME=Locations
+   NEXT_PUBLIC_AIRTABLE_VIEW_NAME=Grid view
+   NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD=fldA9pKfnRoHfIbWT
+   NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD=fldyFcMeVUwAkNlM5
+
    # Mapbox Configuration
    NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
    ```
 
-4. **Get API Keys**
+4. **Get API Keys and Field IDs**
+
    - **Airtable**: Create an account at [airtable.com](https://airtable.com) and get your API key from your account settings
    - **Mapbox**: Create an account at [mapbox.com](https://mapbox.com) and get your access token from your account dashboard
+   - **Field IDs**: To find your Airtable field IDs, go to your Airtable base, click on the field name, and look at the URL. The field ID is the string after `field/` in the URL (e.g., `fldA9pKfnRoHfIbWT`)
 
 5. **Run the development server**
+
    ```bash
    npm run dev
    ```

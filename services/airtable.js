@@ -5,8 +5,13 @@ import { haversineDistance } from "../components/utils/distance.js";
 
 const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
-const AIRTABLE_TABLE_NAME = "Locations";
-const AIRTABLE_VIEW_NAME = "US";
+const AIRTABLE_TABLE_NAME =
+  process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME || "Locations";
+const AIRTABLE_VIEW_NAME = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_NAME || "US";
+const LATITUDE_FIELD =
+  process.env.NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD || "latitude";
+const LONGITUDE_FIELD =
+  process.env.NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD || "longitude";
 
 /**
  * Fetch all locations from Airtable with pagination
@@ -94,8 +99,8 @@ export const filterLocations = async (locations, criteria) => {
     // Filter by distance
     return filteredLocations.filter((location) => {
       const locationCoords = [
-        location.fields.longitude,
-        location.fields.latitude,
+        location.fields[LONGITUDE_FIELD],
+        location.fields[LATITUDE_FIELD],
       ];
       const distance = haversineDistance(searchCoords, locationCoords);
       return radius === "any" || distance <= radius;
