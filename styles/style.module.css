@@ -463,10 +463,15 @@
 }
 
 .mapWrapper :global(.mapboxgl-popup) {
-  max-width: 320px !important;
+  max-width: 600px !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Ensure popup stays within viewport */
+  max-height: 85vh !important;
+  overflow-y: auto !important;
+  /* Add smooth scrolling */
+  scroll-behavior: smooth !important;
 }
 
 .mapWrapper :global(.mapboxgl-popup-content) {
@@ -544,13 +549,77 @@
   background: white;
   border-radius: 12px;
   overflow: hidden;
-  max-width: 400px;
+  max-width: 600px;
+  /* Add subtle scroll indicators */
+  position: relative;
+}
+
+/* Add scroll fade effect */
+.locationCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 1),
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.locationCard::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 1),
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
+  z-index: 1;
 }
 
 .locationHeader {
   padding: 16px 20px;
   background: #f8f9fa;
   border-bottom: 1px solid #e9ecef;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: none;
+}
+
+.locationHeader:hover {
+  background: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dragHandle {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  font-size: 12px;
+  line-height: 1;
+  cursor: move;
+  user-select: none;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.locationHeader:hover .dragHandle {
+  opacity: 1;
 }
 
 .locationHeader h3 {
@@ -558,6 +627,31 @@
   font-size: 1.2rem;
   color: #333;
   font-weight: 600;
+  padding-right: 30px;
+}
+
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.closeButton:hover {
+  background: #f0f0f0;
+  color: #333;
 }
 
 .locationBadge {
@@ -627,6 +721,33 @@
   background: #1976d2;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.actionButton {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.actionButton:hover {
+  background: #0056b3;
+  color: white;
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.actionButton:active {
+  transform: translateY(0);
 }
 
 /* Ensure buttons maintain consistent width on mobile */
@@ -933,8 +1054,8 @@
 }
 
 .premiumDescription {
-  margin-top: 12px;
-  padding: 12px;
+  margin-top: 8px;
+  padding: 10px;
   background: linear-gradient(
     to right,
     rgba(255, 215, 0, 0.1),
@@ -942,8 +1063,10 @@
   );
   border-left: 3px solid #ffd700;
   border-radius: 4px;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  max-height: 120px;
+  overflow-y: auto;
   color: #333;
   text-align: left;
 }

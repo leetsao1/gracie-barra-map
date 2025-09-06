@@ -10,14 +10,23 @@ import Image from "next/image";
 // Airtable setup
 const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
-const AIRTABLE_TABLE_NAME =
-  process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME || "Locations";
-const AIRTABLE_VIEW_NAME =
-  process.env.NEXT_PUBLIC_AIRTABLE_VIEW_NAME || "Grid view";
-const LATITUDE_FIELD =
-  process.env.NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD || "fldA9pKfnRoHfIbWT";
-const LONGITUDE_FIELD =
-  process.env.NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD || "fldyFcMeVUwAkNlM5";
+const AIRTABLE_TABLE_ID = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_ID;
+const AIRTABLE_VIEW_ID = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID;
+const LATITUDE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD_ID;
+const LONGITUDE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD_ID;
+const ADDRESS_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_ADDRESS_FIELD_ID;
+const SCHOOL_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_SCHOOL_FIELD_ID;
+
+// SCHOOL_FIELD_ID loaded from environment
+const HEAD_INSTRUCTOR_FIELD_ID =
+  process.env.NEXT_PUBLIC_AIRTABLE_HEAD_INSTRUCTOR_FIELD_ID;
+const PHONE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_PHONE_FIELD_ID;
+const EMAIL_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_EMAIL_FIELD_ID;
+const WEBSITE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_WEBSITE_FIELD_ID;
+const IS_PREMIUM_FIELD_ID =
+  process.env.NEXT_PUBLIC_AIRTABLE_IS_PREMIUM_FIELD_ID;
+const COUNTRY_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_COUNTRY_FIELD_ID;
+const REGION_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_REGION_FIELD_ID;
 
 // Mapbox access token
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -49,6 +58,16 @@ const radiusOptions = [
 const premiumOptions = [
   { value: "all", label: "All locations" },
   { value: "premium", label: "Premium only" },
+];
+
+const countryOptions = (countries) => [
+  { value: "all", label: "All countries" },
+  ...countries.map((country) => ({ value: country, label: country })),
+];
+
+const regionOptions = (regions) => [
+  { value: "all", label: "All regions" },
+  ...regions.map((region) => ({ value: region, label: region })),
 ];
 
 // Custom Modal styles to override react-modal default styles
@@ -163,19 +182,161 @@ const isPointWithinBounds = (point, bounds) => {
   return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat;
 };
 
+// Use default Mapbox popup positioning - no custom offsets
+const calculatePopupOffset = () => {
+  // Return default offset for perfect pin alignment
+  return [0, 0];
+};
+
+// Make popup draggable
+const makePopupDraggable = (popupContent, popup) => {
+  let isDragging = false;
+  let startX, startY, initialOffsetX, initialOffsetY;
+  let animationFrame = null;
+
+  // Add drag handle to the header - look for the draggable header
+  const header = popupContent.querySelector("[data-draggable='true']");
+  if (!header) {
+    console.log("Header not found for dragging");
+    return;
+  }
+
+  console.log("Setting up drag functionality for popup");
+
+  // Add cursor style to indicate draggable
+  header.style.cursor = "grab";
+  header.style.userSelect = "none";
+  header.style.touchAction = "none"; // Prevent scrolling on touch devices
+
+  const startDrag = (e) => {
+    console.log("Drag started");
+    isDragging = true;
+    startX = e.clientX || e.touches[0].clientX;
+    startY = e.clientY || e.touches[0].clientY;
+
+    // Initialize offset tracking - Mapbox doesn't have getOffset method
+    initialOffsetX = 0;
+    initialOffsetY = 0;
+
+    // Add visual feedback immediately
+    header.style.cursor = "grabbing";
+    header.style.opacity = "0.9";
+    header.style.transform = "scale(1.05)";
+    header.style.transition = "none"; // Disable transitions during drag
+
+    // Prevent text selection and scrolling during drag
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grabbing";
+    document.body.style.overflow = "hidden";
+
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const drag = (e) => {
+    if (!isDragging) return;
+
+    // Use requestAnimationFrame for smoother dragging
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+    }
+
+    animationFrame = requestAnimationFrame(() => {
+      const currentX = e.clientX || e.touches[0].clientX;
+      const currentY = e.clientY || e.touches[0].clientY;
+
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+
+      // Calculate new offset from initial position
+      const newOffsetX = initialOffsetX + deltaX;
+      const newOffsetY = initialOffsetY + deltaY;
+
+      // Keep popup within reasonable bounds - increased for better responsiveness
+      const maxOffset = 300; // Increased maximum offset
+      const constrainedOffsetX = Math.max(
+        -maxOffset,
+        Math.min(maxOffset, newOffsetX)
+      );
+      const constrainedOffsetY = Math.max(
+        -maxOffset,
+        Math.min(maxOffset, newOffsetY)
+      );
+
+      // Update popup offset to move it while keeping arrow aligned
+      popup.setOffset([constrainedOffsetX, constrainedOffsetY]);
+    });
+
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const stopDrag = (e) => {
+    if (!isDragging) return;
+    console.log("Drag ended");
+    isDragging = false;
+
+    // Cancel any pending animation frame
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
+
+    // Reset visual feedback with smooth transition
+    header.style.cursor = "grab";
+    header.style.opacity = "1";
+    header.style.transform = "scale(1)";
+    header.style.transition = "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)";
+
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+    document.body.style.overflow = "";
+
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // Add event listeners for both mouse and touch
+  header.addEventListener("mousedown", startDrag, { passive: false });
+  header.addEventListener("touchstart", startDrag, { passive: false });
+
+  document.addEventListener("mousemove", drag, { passive: false });
+  document.addEventListener("touchmove", drag, { passive: false });
+
+  document.addEventListener("mouseup", stopDrag, { passive: false });
+  document.addEventListener("touchend", stopDrag, { passive: false });
+
+  // Clean up on popup close
+  popup.on("close", () => {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+    }
+    header.removeEventListener("mousedown", startDrag);
+    header.removeEventListener("touchstart", startDrag);
+    document.removeEventListener("mousemove", drag);
+    document.removeEventListener("touchmove", drag);
+    document.removeEventListener("mouseup", stopDrag);
+    document.removeEventListener("touchend", stopDrag);
+  });
+};
+
 const Component = () => {
   const mapContainer = React.useRef(null);
   const mapInstance = React.useRef(null);
   const userMarkerRef = React.useRef(null);
   const [map, setMap] = useState(null);
   const [mapInitialized, setMapInitialized] = useState(false);
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [modalData, setModalData] = useState(null);
+  // Modal states removed - using small popup system instead
   const [instructorModalIsOpen, setInstructorModalIsOpen] = useState(false);
   const [instructorData, setInstructorData] = useState(null);
   const [searchAddress, setSearchAddress] = useState("");
   const [searchRadius, setSearchRadius] = useState(50);
   const [premiumFilter, setPremiumFilter] = useState("all");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [regionFilter, setRegionFilter] = useState("all");
+  const [allLocations, setAllLocations] = useState([]);
+  const [uniqueCountries, setUniqueCountries] = useState([]);
+  const [uniqueRegions, setUniqueRegions] = useState([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [pinColor, setPinColor] = useState("red");
@@ -206,17 +367,31 @@ const Component = () => {
       return "";
     }
 
-    const isPremium = location["isPremium"] || false;
+    // Handle both cases: fields at top level or nested under .fields
+    const fields = location.fields || location;
+
+    const isPremium = fields[IS_PREMIUM_FIELD_ID] || false;
+    // Try multiple possible school name fields
+    const schoolName =
+      fields[SCHOOL_FIELD_ID] ||
+      fields["School Name"] ||
+      fields["Name"] ||
+      fields["Title"] ||
+      fields["Location Name"] ||
+      null;
+
     const locationName =
-      location["Location Name"] || "Location Name Not Available";
-    const fullAddress = location["Full Address"] || "Address Not Available";
-    const instructor = location["Instructor"] || "Instructor Not Available";
-    const phone = location["Phone Number"];
+      schoolName || fields[ADDRESS_FIELD_ID] || "School Name Not Available";
+    const fullAddress = fields[ADDRESS_FIELD_ID] || "Address Not Available";
+    const instructor =
+      fields[HEAD_INSTRUCTOR_FIELD_ID] || "Instructor Not Available";
+    const phone = fields[PHONE_FIELD_ID];
     const formattedPhone =
       typeof phone === "string" ? phone : "Phone Not Available";
     const phoneDigits =
       typeof phone === "string" ? phone.replace(/[^0-9]/g, "") : "";
-    const website = location["Website"] || "#";
+    const email = fields[EMAIL_FIELD_ID];
+    const website = fields[WEBSITE_FIELD_ID];
     const locationId = location.id || `${locationName}-${fullAddress}`;
 
     const premiumDescription =
@@ -224,8 +399,12 @@ const Component = () => {
 
     return `
       <div class="${styles.locationCard}" data-location-id="${locationId}">
-        <div class="${styles.locationHeader}">
+        <div class="${styles.locationHeader}" data-draggable="true">
+          <div class="${styles.dragHandle}">⋮⋮</div>
           <h3>${locationName}</h3>
+          <button class="${
+            styles.closeButton
+          }" onclick="this.closest('.mapboxgl-popup').remove()" aria-label="Close popup">×</button>
           <div class="${styles.locationBadge} ${
       isPremium ? styles.premiumBadge : styles.regularBadge
     }">
@@ -258,12 +437,32 @@ const Component = () => {
             <p>${formattedPhone}</p>
           </div>
           
+          ${
+            email
+              ? `
+          <div class="${styles.locationInfo}">
+            <h4>Email</h4>
+            <p>${email}</p>
+          </div>
+          `
+              : ""
+          }
+          
           <div class="${styles.locationLinks}">
             ${
-              website !== "#"
+              website
                 ? `
-              <a href="${website}" target="_blank" rel="noopener noreferrer">
+              <a href="${website}" target="_blank" rel="noopener noreferrer" class="${styles.actionButton}">
                 Visit Website
+              </a>
+            `
+                : ""
+            }
+            ${
+              email
+                ? `
+              <a href="mailto:${email}" class="${styles.actionButton}">
+                Email School
               </a>
             `
                 : ""
@@ -271,7 +470,7 @@ const Component = () => {
             ${
               phoneDigits
                 ? `
-              <a href="tel:${phoneDigits}" class="phone-link">
+              <a href="tel:${phoneDigits}" class="${styles.actionButton}">
                 Call Now
               </a>
             `
@@ -279,7 +478,9 @@ const Component = () => {
             }
             <a href="https://maps.google.com/?q=${encodeURIComponent(
               fullAddress
-            )}" target="_blank" rel="noopener noreferrer">
+            )}" target="_blank" rel="noopener noreferrer" class="${
+      styles.actionButton
+    }">
               Get Directions
             </a>
           </div>
@@ -301,7 +502,6 @@ const Component = () => {
       });
     }
     setActiveCard(null);
-    setModalData(null);
     setShowLocationDetails(false);
   }, [searchResults, activePopup]);
 
@@ -322,10 +522,10 @@ const Component = () => {
       try {
         // Create and open new popup
         const newPopup = new mapboxgl.Popup({
-          closeButton: true,
-          maxWidth: "350px",
+          closeButton: false, // Use custom close button instead
+          maxWidth: "600px", // Much wider to prevent cut-off
           closeOnClick: false,
-          offset: [0, -10],
+          // No offset - use default Mapbox positioning for perfect pin alignment
         });
 
         const content = createLocationPopupContent(locationData);
@@ -339,18 +539,30 @@ const Component = () => {
           .setHTML(content)
           .addTo(mapInstance.current);
 
+        // Add drag functionality to popup
+        setTimeout(() => {
+          const popupElement = newPopup.getElement();
+          if (popupElement) {
+            const popupContent = popupElement.querySelector(
+              ".mapboxgl-popup-content"
+            );
+            if (popupContent) {
+              makePopupDraggable(popupContent, newPopup);
+            }
+          }
+        }, 100);
+
         // Set up close handler
         newPopup.on("close", () => {
+          console.log("Popup close event triggered");
           setActivePopup(null);
           setActiveCard(null);
-          setModalData(null);
           setShowLocationDetails(false);
         });
 
         // Update states
         setActivePopup(newPopup);
         setActiveCard(locationId);
-        setModalData(locationData);
         setShowLocationDetails(true);
       } catch (error) {
         console.error("Error creating popup:", error);
@@ -363,9 +575,9 @@ const Component = () => {
   const batchGeocodeLocations = async (locations) => {
     const validLocations = locations.filter((loc) => {
       // Check if we have direct coordinates
-      if (loc.fields["fldA9pKfnRoHfIbWT"] && loc.fields["fldyFcMeVUwAkNlM5"]) {
-        const lat = parseFloat(loc.fields["fldA9pKfnRoHfIbWT"]);
-        const lng = parseFloat(loc.fields["fldyFcMeVUwAkNlM5"]);
+      if (loc.fields[LATITUDE_FIELD_ID] && loc.fields[LONGITUDE_FIELD_ID]) {
+        const lat = parseFloat(loc.fields[LATITUDE_FIELD_ID]);
+        const lng = parseFloat(loc.fields[LONGITUDE_FIELD_ID]);
         return (
           !isNaN(lat) &&
           !isNaN(lng) &&
@@ -389,32 +601,39 @@ const Component = () => {
     // Process locations with direct coordinates first
     const directLocations = validLocations
       .filter(
-        (loc) =>
-          loc.fields["fldA9pKfnRoHfIbWT"] && loc.fields["fldyFcMeVUwAkNlM5"]
+        (loc) => loc.fields[LONGITUDE_FIELD_ID] && loc.fields[LATITUDE_FIELD_ID]
       )
-      .map((loc) => ({
-        ...loc,
-        coordinates: [
-          parseFloat(loc.fields[LONGITUDE_FIELD]), // Longitude
-          parseFloat(loc.fields[LATITUDE_FIELD]), // Latitude
-        ],
-      }));
+      .map((loc) => {
+        const coords = [
+          parseFloat(loc.fields[LONGITUDE_FIELD_ID]), // Longitude
+          parseFloat(loc.fields[LATITUDE_FIELD_ID]), // Latitude
+        ];
+        console.log(
+          `Processing location: ${loc.fields[ADDRESS_FIELD_ID]} with coordinates:`,
+          coords
+        );
+        return {
+          ...loc,
+          coordinates: coords,
+        };
+      });
+
+    console.log("Direct locations with coordinates:", directLocations.length);
 
     // Only geocode locations without coordinates
     const locationsToGeocode = validLocations.filter(
-      (loc) =>
-        !loc.fields["fldA9pKfnRoHfIbWT"] || !loc.fields["fldyFcMeVUwAkNlM5"]
+      (loc) => !loc.fields[LONGITUDE_FIELD_ID] || !loc.fields[LATITUDE_FIELD_ID]
     );
 
     // First check cache for locations that need geocoding
     const uncachedLocations = locationsToGeocode.filter(
-      (loc) => !locationCache.has(loc.fields["Address for Geolocation"])
+      (loc) => !locationCache.has(loc.fields["School Address"])
     );
 
     if (uncachedLocations.length === 0) {
       const geocodedLocations = locationsToGeocode.map((loc) => ({
         ...loc,
-        coordinates: locationCache.get(loc.fields["Address for Geolocation"]),
+        coordinates: locationCache.get(loc.fields["School Address"]),
       }));
       return [...directLocations, ...geocodedLocations];
     }
@@ -431,7 +650,7 @@ const Component = () => {
       const results = await Promise.all(
         batches.map(async (batch) => {
           const batchPromises = batch.map(async (location) => {
-            const address = location.fields["Address for Geolocation"].trim();
+            const address = location.fields["School Address"].trim();
 
             try {
               const response = await mapboxClient
@@ -499,26 +718,44 @@ const Component = () => {
     let allRecords = [];
     let offset = null;
 
-    // Define the fields we need for the map
-    const fields = [
-      "Location Name",
-      "Address for Geolocation",
-      "Full Address",
-      "Phone Number",
-      "Website",
-      "Instructor",
-      "isPremium",
-      LATITUDE_FIELD, // Latitude field
-      LONGITUDE_FIELD, // Longitude field
-    ];
+    // Define the fields we need for the map using field IDs
+    // Only include fields that are defined in environment variables
+    const fields = [];
+
+    if (ADDRESS_FIELD_ID) fields.push(ADDRESS_FIELD_ID);
+    if (SCHOOL_FIELD_ID) fields.push(SCHOOL_FIELD_ID);
+    if (HEAD_INSTRUCTOR_FIELD_ID) fields.push(HEAD_INSTRUCTOR_FIELD_ID);
+    if (PHONE_FIELD_ID) fields.push(PHONE_FIELD_ID);
+    if (EMAIL_FIELD_ID) fields.push(EMAIL_FIELD_ID);
+    if (WEBSITE_FIELD_ID) fields.push(WEBSITE_FIELD_ID);
+    if (IS_PREMIUM_FIELD_ID) fields.push(IS_PREMIUM_FIELD_ID);
+    if (COUNTRY_FIELD_ID) fields.push(COUNTRY_FIELD_ID);
+    if (REGION_FIELD_ID) fields.push(REGION_FIELD_ID);
+    if (LATITUDE_FIELD_ID) fields.push(LATITUDE_FIELD_ID);
+    if (LONGITUDE_FIELD_ID) fields.push(LONGITUDE_FIELD_ID);
 
     const fieldsParam = fields
       .map((field) => `fields[]=${encodeURIComponent(field)}`)
       .join("&");
 
+    console.log("Requesting fields:", fields);
+    console.log("Fields param:", fieldsParam);
+
     try {
+      // Debug environment variables
+      console.log("Environment Variables Check:", {
+        AIRTABLE_BASE_ID: AIRTABLE_BASE_ID,
+        AIRTABLE_TABLE_ID: AIRTABLE_TABLE_ID,
+        AIRTABLE_VIEW_ID: AIRTABLE_VIEW_ID,
+        AIRTABLE_API_KEY: AIRTABLE_API_KEY
+          ? `${AIRTABLE_API_KEY.substring(0, 10)}...`
+          : "MISSING",
+        LATITUDE_FIELD_ID: LATITUDE_FIELD_ID,
+        LONGITUDE_FIELD_ID: LONGITUDE_FIELD_ID,
+      });
+
       // First try to get from cache
-      const cacheKey = `${AIRTABLE_BASE_ID}-${AIRTABLE_TABLE_NAME}-${AIRTABLE_VIEW_NAME}`;
+      const cacheKey = `${AIRTABLE_BASE_ID}-${AIRTABLE_TABLE_ID}-${AIRTABLE_VIEW_ID}`;
       const cachedData = localStorage.getItem(cacheKey);
       const cacheTimestamp = localStorage.getItem(`${cacheKey}-timestamp`);
 
@@ -541,9 +778,7 @@ const Component = () => {
       }
 
       do {
-        let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(
-          AIRTABLE_TABLE_NAME
-        )}?view=${encodeURIComponent(AIRTABLE_VIEW_NAME)}&${fieldsParam}`;
+        let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}?view=${AIRTABLE_VIEW_ID}&returnFieldsByFieldId=true&${fieldsParam}`;
 
         if (offset) {
           url += `&offset=${offset}`;
@@ -557,18 +792,39 @@ const Component = () => {
         });
 
         if (!response.ok) {
+          console.error("Airtable API Error Details:", {
+            status: response.status,
+            statusText: response.statusText,
+            url: url,
+            baseId: AIRTABLE_BASE_ID,
+            tableId: AIRTABLE_TABLE_ID,
+            viewId: AIRTABLE_VIEW_ID,
+          });
           throw new Error(
             `Airtable API error: ${response.status} ${response.statusText}`
           );
         }
 
         const data = await response.json();
+        // Debug logs removed - data fetching working correctly
+
         const validRecords = data.records.filter(
           (record) =>
-            record.fields["Location Name"] &&
-            record.fields["Address for Geolocation"] &&
-            record.fields["Full Address"]
+            record.fields[LONGITUDE_FIELD_ID] &&
+            record.fields[LATITUDE_FIELD_ID]
         );
+
+        console.log("Valid records with coordinates:", validRecords.length);
+        console.log("Sample valid record:", validRecords[0]);
+        console.log("Field ID check:", {
+          LONGITUDE_FIELD_ID: LONGITUDE_FIELD_ID,
+          LATITUDE_FIELD_ID: LATITUDE_FIELD_ID,
+          SCHOOL_FIELD_ID: SCHOOL_FIELD_ID,
+          hasLongitude: data.records[0]?.fields[LONGITUDE_FIELD_ID],
+          hasLatitude: data.records[0]?.fields[LATITUDE_FIELD_ID],
+          hasSchool: data.records[0]?.fields[SCHOOL_FIELD_ID],
+          schoolValue: data.records[0]?.fields[SCHOOL_FIELD_ID],
+        });
 
         allRecords = [...allRecords, ...validRecords];
         offset = data.offset;
@@ -577,6 +833,40 @@ const Component = () => {
       // Cache the results with a shorter expiration
       localStorage.setItem(cacheKey, JSON.stringify(allRecords));
       localStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString());
+
+      // Store all locations in state for filtering
+      setAllLocations(allRecords);
+
+      // Extract unique countries and regions
+      const countries = [
+        ...new Set(
+          allRecords
+            .map((record) => record.fields[COUNTRY_FIELD_ID])
+            .filter(
+              (country) =>
+                country && (typeof country === "string" ? country.trim() : true)
+            )
+        ),
+      ].sort();
+
+      const regions = [
+        ...new Set(
+          allRecords
+            .map((record) => {
+              const region = record.fields[REGION_FIELD_ID];
+              // Handle both string and array cases
+              if (Array.isArray(region)) {
+                return region.filter((r) => r && r.trim());
+              }
+              return region && region.trim() ? [region] : [];
+            })
+            .flat()
+            .filter((region) => region && region.trim())
+        ),
+      ].sort();
+
+      setUniqueCountries(countries);
+      setUniqueRegions(regions);
 
       return allRecords;
     } catch (error) {
@@ -587,14 +877,12 @@ const Component = () => {
   };
 
   const showLocationPanel = (location, color) => {
-    setModalData(location);
     setPinColor(color);
     setShowLocationDetails(true);
   };
 
   const hideLocationPanel = () => {
     setShowLocationDetails(false);
-    setModalData(null);
   };
 
   const openInstructorModal = (instructor) => {
@@ -882,6 +1170,151 @@ const Component = () => {
     }
   };
 
+  // Function to filter locations based on current filters
+  const filterAndDisplayLocations = useCallback(
+    async (locations = allLocations) => {
+      if (!mapInstance.current || !locations.length) return;
+
+      // Clear existing markers
+      const existingMarkers = document.querySelectorAll(".mapboxgl-marker");
+      existingMarkers.forEach((marker) => marker.remove());
+
+      // Filter locations based on current filters
+      let filteredLocations = locations;
+
+      // Apply premium filter
+      if (premiumFilter === "premium") {
+        filteredLocations = filteredLocations.filter(
+          (loc) => loc.fields[IS_PREMIUM_FIELD_ID]
+        );
+      }
+
+      // Apply country filter
+      if (countryFilter !== "all") {
+        filteredLocations = filteredLocations.filter(
+          (loc) => loc.fields[COUNTRY_FIELD_ID] === countryFilter
+        );
+      }
+
+      // Apply region filter
+      if (regionFilter !== "all") {
+        filteredLocations = filteredLocations.filter((loc) => {
+          const region = loc.fields[REGION_FIELD_ID];
+          if (Array.isArray(region)) {
+            return region.includes(regionFilter);
+          }
+          return region === regionFilter;
+        });
+      }
+
+      // Geocode filtered locations
+      const geocodedLocations = await batchGeocodeLocations(filteredLocations);
+
+      if (geocodedLocations.length === 0) {
+        setSearchResults([]);
+        setSearchStatus("Found 0 locations");
+        return;
+      }
+
+      // Add markers to map
+      const bounds = new mapboxgl.LngLatBounds();
+      geocodedLocations.forEach((location, index) => {
+        if (location.coordinates && location.coordinates.length === 2) {
+          const isPremium = location.fields[IS_PREMIUM_FIELD_ID];
+          const marker = new mapboxgl.Marker({
+            color: isPremium ? "#FFD700" : "#FF0000",
+            scale: isPremium ? 1.2 : 1,
+          })
+            .setLngLat(location.coordinates)
+            .addTo(mapInstance.current);
+
+          bounds.extend(location.coordinates);
+
+          const uniqueId = `${location.id || ""}-${index}-${
+            location.fields[ADDRESS_FIELD_ID] || ""
+          }`.replace(/[^a-zA-Z0-9]/g, "-");
+
+          marker.getElement().addEventListener("click", (e) => {
+            e.stopPropagation();
+
+            // Close any existing popups first
+            closeAllPopups();
+
+            // Create and open popup
+            const popup = new mapboxgl.Popup({
+              closeButton: false, // Use custom close button instead
+              maxWidth: "600px", // Much wider to prevent cut-off
+              closeOnClick: false,
+              // No offset - use default Mapbox positioning for perfect pin alignment
+            });
+
+            const content = createLocationPopupContent(location);
+            if (content) {
+              popup
+                .setLngLat(location.coordinates)
+                .setHTML(content)
+                .addTo(mapInstance.current);
+
+              // Add drag functionality to popup
+              setTimeout(() => {
+                const popupElement = popup.getElement();
+                if (popupElement) {
+                  const popupContent = popupElement.querySelector(
+                    ".mapboxgl-popup-content"
+                  );
+                  if (popupContent) {
+                    makePopupDraggable(popupContent, popup);
+                  }
+                }
+              }, 100);
+
+              // Set up close handler and store popup reference
+              popup.on("close", () => {
+                setActivePopup(null);
+                setActiveCard(null);
+                setShowLocationDetails(false);
+              });
+
+              // Update states
+              setActivePopup(popup);
+              setActiveCard(uniqueId);
+              setShowLocationDetails(true);
+            }
+          });
+
+          marker.getElement().setAttribute("data-location-id", uniqueId);
+        }
+      });
+
+      // Fit map to show all markers
+      if (geocodedLocations.length > 0) {
+        mapInstance.current.fitBounds(bounds, { padding: 50 });
+      }
+
+      setSearchResults(geocodedLocations);
+      setSearchStatus(
+        `Found ${geocodedLocations.length} ${
+          geocodedLocations.length === 1 ? "location" : "locations"
+        }`
+      );
+    },
+    [allLocations, premiumFilter, countryFilter, regionFilter, mapInstance]
+  );
+
+  // Effect to filter locations when filters change
+  useEffect(() => {
+    if (allLocations.length > 0 && mapInitialized) {
+      filterAndDisplayLocations();
+    }
+  }, [
+    premiumFilter,
+    countryFilter,
+    regionFilter,
+    allLocations,
+    mapInitialized,
+    filterAndDisplayLocations,
+  ]);
+
   // Update the runSearch function
   const runSearch = async (
     addressOrCoords,
@@ -905,7 +1338,7 @@ const Component = () => {
       // Filter premium locations if needed
       const filteredByPremium =
         premiumFilter === "premium"
-          ? allLocations.filter((loc) => loc.fields["isPremium"])
+          ? allLocations.filter((loc) => loc.fields[IS_PREMIUM_FIELD_ID])
           : allLocations;
 
       // Geocode all locations
@@ -929,18 +1362,18 @@ const Component = () => {
           const directMatch = geocodedLocations.find((loc) => {
             // Safely get and convert fields to lowercase strings
             const locationName =
-              typeof loc.fields["Location Name"] === "string"
-                ? loc.fields["Location Name"].toLowerCase()
+              typeof loc.fields[ADDRESS_FIELD_ID] === "string"
+                ? loc.fields[ADDRESS_FIELD_ID].toLowerCase()
                 : "";
 
             const address =
-              typeof loc.fields["Full Address"] === "string"
-                ? loc.fields["Full Address"].toLowerCase()
+              typeof loc.fields[ADDRESS_FIELD_ID] === "string"
+                ? loc.fields[ADDRESS_FIELD_ID].toLowerCase()
                 : "";
 
             const geoAddress =
-              typeof loc.fields["Address for Geolocation"] === "string"
-                ? loc.fields["Address for Geolocation"].toLowerCase()
+              typeof loc.fields[ADDRESS_FIELD_ID] === "string"
+                ? loc.fields[ADDRESS_FIELD_ID].toLowerCase()
                 : "";
 
             const searchTerm = trimmedAddress || "";
@@ -1051,7 +1484,7 @@ const Component = () => {
           );
           bounds.extend(location.coordinates);
 
-          const isPremium = location.fields["isPremium"];
+          const isPremium = location.fields[IS_PREMIUM_FIELD_ID];
           const marker = new mapboxgl.Marker({
             color: isPremium ? "#FFD700" : "#FF0000",
             scale: isPremium ? 1.2 : 1,
@@ -1060,8 +1493,8 @@ const Component = () => {
             .addTo(mapInstance.current);
 
           const uniqueId = `${location.id || ""}-${index}-${
-            location.fields["Location Name"] || ""
-          }-${location.fields["Full Address"] || ""}`.replace(
+            location.fields[ADDRESS_FIELD_ID] || ""
+          }-${location.fields[ADDRESS_FIELD_ID] || ""}`.replace(
             /[^a-zA-Z0-9]/g,
             "-"
           );
@@ -1152,7 +1585,7 @@ const Component = () => {
       setSelectedLocation(location);
       setActiveCard(location.uniqueId);
 
-      // Smooth map transition
+      // Smooth map transition to the exact location
       if (mapInstance.current) {
         mapInstance.current.flyTo({
           center: location.coordinates,
@@ -1324,98 +1757,58 @@ const Component = () => {
 
     setSearchStatus("Loading all locations...");
     try {
-      // Clear existing markers before adding new ones
-      if (searchResults.length > 0) {
-        searchResults.forEach((result) => {
-          if (result.marker) {
-            result.marker.remove();
-          }
-        });
-      }
+      // Fetch all locations and let the filter system handle display
+      await fetchLocations(true);
 
-      const allLocations = await fetchLocations(true);
-      const geocodedLocations = await batchGeocodeLocations(allLocations);
-
-      // Create bounds object for fitting the map
-      const bounds = new mapboxgl.LngLatBounds();
-      let validLocations = 0;
-
-      // Process and show all locations
-      const results = geocodedLocations
-        .filter((location) => {
-          if (!location?.coordinates) {
-            console.log(
-              "Skipping location without coordinates:",
-              location?.fields?.["Location Name"]
-            );
+      // Get the filtered locations that are currently displayed on the map
+      const filteredLocations = allLocations.filter((loc) => {
+        // Apply the same filters that are used in filterAndDisplayLocations
+        if (premiumFilter === "premium" && !loc.fields[IS_PREMIUM_FIELD_ID]) {
+          return false;
+        }
+        if (
+          countryFilter !== "all" &&
+          loc.fields[COUNTRY_FIELD_ID] !== countryFilter
+        ) {
+          return false;
+        }
+        if (regionFilter !== "all") {
+          const region = loc.fields[REGION_FIELD_ID];
+          if (Array.isArray(region)) {
+            if (!region.includes(regionFilter)) return false;
+          } else if (region !== regionFilter) {
             return false;
           }
-          return true;
-        })
-        .map((location, index) => {
-          try {
-            const isPremium = location.fields["isPremium"];
-            const marker = new mapboxgl.Marker({
-              color: isPremium ? "#FFD700" : "#FF0000",
-              scale: isPremium ? 1.2 : 1,
-            });
+        }
+        return true;
+      });
 
-            // Extend bounds before adding marker
-            bounds.extend(location.coordinates);
-            validLocations++;
+      // Sort by name (using address field as name)
+      const sortedLocations = filteredLocations.sort((a, b) => {
+        const nameA = a.fields[ADDRESS_FIELD_ID] || "";
+        const nameB = b.fields[ADDRESS_FIELD_ID] || "";
+        return nameA.localeCompare(nameB);
+      });
 
-            // Create marker and add to map
-            marker.setLngLat(location.coordinates);
-            marker.addTo(mapInstance.current);
+      // Process locations to add uniqueId and other required properties for the UI
+      const processedLocations = sortedLocations.map((location, index) => {
+        const uniqueId = `${location.id || ""}-${index}-${
+          location.fields[ADDRESS_FIELD_ID] || ""
+        }`.replace(/[^a-zA-Z0-9]/g, "-");
 
-            const uniqueId = `${location.id || ""}-${index}-${
-              location.fields["Location Name"] || ""
-            }-${location.fields["Full Address"] || ""}`.replace(
-              /[^a-zA-Z0-9]/g,
-              "-"
-            );
+        return {
+          ...location,
+          uniqueId,
+          coordinates: [
+            parseFloat(location.fields[LONGITUDE_FIELD_ID]),
+            parseFloat(location.fields[LATITUDE_FIELD_ID]),
+          ],
+        };
+      });
 
-            marker.getElement().addEventListener("click", (e) => {
-              e.stopPropagation();
-              handleLocationSelect({
-                ...location.fields,
-                coordinates: location.coordinates,
-                id: uniqueId,
-                index,
-                uniqueId,
-              });
-            });
-
-            return {
-              ...location.fields,
-              uniqueId,
-              originalId: location.id,
-              index,
-              coordinates: location.coordinates,
-              marker,
-            };
-          } catch (error) {
-            console.error("Error creating marker:", error);
-            return null;
-          }
-        })
-        .filter(Boolean); // Remove any null results from failed marker creation
-
-      setSearchResults(results);
-
-      if (validLocations > 0) {
-        setSearchStatus(`Showing all ${validLocations} locations`);
-        setIsResultsVisible(true);
-
-        // Fit map to show all locations with padding
-        mapInstance.current.fitBounds(bounds, {
-          padding: { top: 50, bottom: 50, left: 50, right: 50 },
-          maxZoom: 12,
-          duration: 1000,
-        });
-      } else {
-        setSearchStatus("No valid locations found");
-      }
+      setSearchResults(processedLocations);
+      setIsResultsVisible(true);
+      setSearchStatus(`Showing ${sortedLocations.length} locations`);
     } catch (error) {
       console.error("Error showing all locations:", error);
       setSearchStatus("Failed to load locations. Please try again.");
@@ -1577,6 +1970,57 @@ const Component = () => {
                   </select>
                 </div>
 
+                {/* Country Filter */}
+                <div className={styles.filterItem}>
+                  <svg
+                    className={styles.filterIcon}
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                  </svg>
+                  <select
+                    value={countryFilter}
+                    onChange={(e) => setCountryFilter(e.target.value)}
+                    className={styles.searchSelect}
+                    aria-label="Country filter"
+                  >
+                    {countryOptions(uniqueCountries).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Region Filter - Hidden */}
+                <div className={styles.filterItem} style={{ display: "none" }}>
+                  <svg
+                    className={styles.filterIcon}
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  <select
+                    value={regionFilter}
+                    onChange={(e) => setRegionFilter(e.target.value)}
+                    className={styles.searchSelect}
+                    aria-label="Region filter"
+                    disabled
+                  >
+                    {regionOptions(uniqueRegions).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {searchResults.length > 0 && (
                   <div className={styles.filterItem}>
                     <button
@@ -1715,22 +2159,36 @@ const Component = () => {
                   onKeyDown={(e) => handleKeyDown(e, result)}
                   tabIndex={0}
                   role="button"
-                  aria-label={`${result["Location Name"]} - ${
+                  aria-label={`${
+                    result.fields[SCHOOL_FIELD_ID] ||
+                    result.fields[ADDRESS_FIELD_ID]
+                  } - ${
                     result.distance
                       ? `${result.distance.toFixed(1)} miles away`
                       : ""
                   }`}
                 >
                   <div className={styles.resultHeader}>
-                    <h4>{result["Location Name"]}</h4>
+                    <h4>
+                      {(() => {
+                        // Try multiple possible school name fields
+                        const schoolName =
+                          result.fields[SCHOOL_FIELD_ID] ||
+                          result.fields["School Name"] ||
+                          result.fields["Name"] ||
+                          result.fields["Title"] ||
+                          result.fields["Location Name"];
+                        return schoolName || result.fields[ADDRESS_FIELD_ID];
+                      })()}
+                    </h4>
                     <span className={styles.distance}>
                       {result.distance
                         ? `${result.distance.toFixed(1)} miles`
                         : ""}
                     </span>
                   </div>
-                  <p>{result["Full Address"]}</p>
-                  {result["isPremium"] && (
+                  <p>{result.fields[ADDRESS_FIELD_ID]}</p>
+                  {result.fields[IS_PREMIUM_FIELD_ID] && (
                     <span className={styles.premiumBadge}>
                       Premium Location
                     </span>
@@ -1742,23 +2200,7 @@ const Component = () => {
         )}
       </main>
 
-      <Modal
-        isOpen={modalIsOpen}
-        onRequestClose={hideLocationPanel}
-        style={customModalStyles(pinColor)}
-        contentLabel="Location Details"
-      >
-        {modalData && (
-          <div className={styles.locationDetails}>
-            <h2>{modalData["Location Name"]}</h2>
-            <p>{modalData["Full Address"]}</p>
-            <p>Phone: {modalData["Phone Number"]}</p>
-            <p>Website: {modalData["Website"]}</p>
-            <p>Instructor: {modalData["Instructor"]}</p>
-            <p>Premium: {modalData["isPremium"] ? "Yes" : "No"}</p>
-          </div>
-        )}
-      </Modal>
+      {/* Large modal removed - using small popup system instead */}
 
       <Modal
         isOpen={instructorModalIsOpen}
@@ -1767,13 +2209,13 @@ const Component = () => {
       >
         {instructorData && (
           <div className={styles.instructorDetails}>
-            <h2>{instructorData["Instructor"]}</h2>
+            <h2>{instructorData[HEAD_INSTRUCTOR_FIELD_ID]}</h2>
             {instructorData["Photo (from Instructors)"] &&
               instructorData["Photo (from Instructors)"].map((photo, index) => (
                 <Image
                   key={index}
                   src={photo.url}
-                  alt={instructorData["Instructor"]}
+                  alt={instructorData[HEAD_INSTRUCTOR_FIELD_ID]}
                   width={200}
                   height={200}
                   style={{ marginBottom: 10 }}

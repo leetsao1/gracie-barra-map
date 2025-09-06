@@ -5,13 +5,19 @@ import { haversineDistance } from "../components/utils/distance.js";
 
 const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
 const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
-const AIRTABLE_TABLE_NAME =
-  process.env.NEXT_PUBLIC_AIRTABLE_TABLE_NAME || "Locations";
-const AIRTABLE_VIEW_NAME = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_NAME || "US";
-const LATITUDE_FIELD =
-  process.env.NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD || "latitude";
-const LONGITUDE_FIELD =
-  process.env.NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD || "longitude";
+const AIRTABLE_TABLE_ID = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_ID;
+const AIRTABLE_VIEW_ID = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID;
+const LATITUDE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD_ID;
+const LONGITUDE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD_ID;
+const ADDRESS_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_ADDRESS_FIELD_ID;
+const HEAD_INSTRUCTOR_FIELD_ID =
+  process.env.NEXT_PUBLIC_AIRTABLE_HEAD_INSTRUCTOR_FIELD_ID;
+const PHONE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_PHONE_FIELD_ID;
+const EMAIL_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_EMAIL_FIELD_ID;
+const IS_PREMIUM_FIELD_ID =
+  process.env.NEXT_PUBLIC_AIRTABLE_IS_PREMIUM_FIELD_ID;
+const COUNTRY_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_COUNTRY_FIELD_ID;
+const REGION_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_REGION_FIELD_ID;
 
 /**
  * Fetch all locations from Airtable with pagination
@@ -21,10 +27,28 @@ export const fetchLocations = async () => {
   let allRecords = [];
   let offset = null;
 
+  // Define the fields we need for the map using field IDs
+  // Only include fields that are defined in environment variables
+  const fields = [];
+
+  if (ADDRESS_FIELD_ID) fields.push(ADDRESS_FIELD_ID);
+  if (HEAD_INSTRUCTOR_FIELD_ID) fields.push(HEAD_INSTRUCTOR_FIELD_ID);
+  if (PHONE_FIELD_ID) fields.push(PHONE_FIELD_ID);
+  if (EMAIL_FIELD_ID) fields.push(EMAIL_FIELD_ID);
+  if (IS_PREMIUM_FIELD_ID) fields.push(IS_PREMIUM_FIELD_ID);
+  if (COUNTRY_FIELD_ID) fields.push(COUNTRY_FIELD_ID);
+  if (REGION_FIELD_ID) fields.push(REGION_FIELD_ID);
+  if (LATITUDE_FIELD_ID) fields.push(LATITUDE_FIELD_ID);
+  if (LONGITUDE_FIELD_ID) fields.push(LONGITUDE_FIELD_ID);
+
+  const fieldsParam = fields
+    .map((field) => `fields[]=${encodeURIComponent(field)}`)
+    .join("&");
+
   try {
     do {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?view=${AIRTABLE_VIEW_NAME}${
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}?view=${AIRTABLE_VIEW_ID}&returnFieldsByFieldId=true&${fieldsParam}${
           offset ? `&offset=${offset}` : ""
         }`,
         {
@@ -41,10 +65,14 @@ export const fetchLocations = async () => {
       }
 
       const data = await response.json();
+      console.log("Airtable API response:", data);
+      console.log("Records in this batch:", data.records.length);
       allRecords = [...allRecords, ...data.records];
       offset = data.offset;
     } while (offset);
 
+    console.log("Total records fetched from Airtable:", allRecords.length);
+    console.log("Sample record:", allRecords[0]);
     return allRecords;
   } catch (error) {
     console.error("Error fetching data from Airtable:", error);
@@ -99,8 +127,8 @@ export const filterLocations = async (locations, criteria) => {
     // Filter by distance
     return filteredLocations.filter((location) => {
       const locationCoords = [
-        location.fields[LONGITUDE_FIELD],
-        location.fields[LATITUDE_FIELD],
+        location.fields[LONGITUDE_FIELD_ID],
+        location.fields[LATITUDE_FIELD_ID],
       ];
       const distance = haversineDistance(searchCoords, locationCoords);
       return radius === "any" || distance <= radius;
