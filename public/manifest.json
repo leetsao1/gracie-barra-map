@@ -1,0 +1,27 @@
+{
+  "name": "Gracie Barra Map",
+  "short_name": "GB Map",
+  "description": "Find Gracie Barra schools worldwide",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/gracie_shield.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/gracie_shield.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "sports", "maps"],
+  "lang": "en",
+  "dir": "ltr"
+}

@@ -352,6 +352,10 @@ const Component = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(0);
   const searchResultsRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -1929,8 +1933,68 @@ const Component = () => {
     };
   }, [searchResults]);
 
+  // Mobile detection and responsive handling
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = window.innerWidth <= 768 || 
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileDevice);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+
+  // Touch handling for mobile sidebar
+  const handleTouchStart = (e) => {
+    if (!isMobile) return;
+    setTouchStartY(e.touches[0].clientY);
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isMobile) return;
+    const touchY = e.touches[0].clientY;
+    const touchX = e.touches[0].clientX;
+    const deltaY = touchY - touchStartY;
+    const deltaX = touchX - touchStartX;
+
+    // Only handle vertical swipes
+    if (Math.abs(deltaY) > Math.abs(deltaX)) {
+      // Swipe down to collapse sidebar
+      if (deltaY > 50 && !isSidebarCollapsed) {
+        setIsSidebarCollapsed(true);
+      }
+      // Swipe up to expand sidebar
+      else if (deltaY < -50 && isSidebarCollapsed) {
+        setIsSidebarCollapsed(false);
+      }
+    }
+  };
+
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isMobile && !isSidebarCollapsed) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobile, isSidebarCollapsed]);
+
   return (
-    <div className={styles.luxuryContainer}>
+    <div 
+      className={`${styles.luxuryContainer} ${isMobile ? styles.mobileContainer : ''}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+    >
       {/* Loading Overlay */}
       {(isSearching || loading || isInitialLoading) && (
         <div className={styles.loadingOverlay}>
@@ -1954,7 +2018,11 @@ const Component = () => {
       </a>
 
       {/* Luxury Sidebar */}
-      <div className={styles.luxurySidebar}>
+      <div 
+        className={`${styles.luxurySidebar} ${isMobile ? styles.mobileSidebar : ''} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+      >
         {/* Header */}
         <div className={styles.sidebarHeader}>
           <div className={styles.logoContainer}>
