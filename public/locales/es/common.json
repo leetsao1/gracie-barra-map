@@ -1,0 +1,59 @@
+{
+  "header": {
+    "title": "Gracie Barra",
+    "subtitle": "Encuentra una Escuela"
+  },
+  "search": {
+    "placeholder": "Buscar ubicaciones...",
+    "button": "Buscar",
+    "locationButton": "Usar mi ubicación",
+    "showAll": "Mostrar todas las ubicaciones"
+  },
+  "filters": {
+    "premium": "Solo Premium",
+    "country": "Todos los países",
+    "region": "Todas las regiones",
+    "allLocations": "Todas las ubicaciones"
+  },
+  "status": {
+    "loading": "Cargando...",
+    "searching": "Buscando...",
+    "loadingLocations": "Cargando ubicaciones...",
+    "ready": "Listo para buscar",
+    "error": "Error al cargar ubicaciones",
+    "noResults": "No se encontraron ubicaciones",
+    "foundResults": "Se encontraron {{count}} ubicaciones"
+  },
+  "results": {
+    "title": "Resultados de Búsqueda",
+    "titleWithCount": "Resultados de Búsqueda ({{count}})",
+    "noResults": "No se encontraron resultados. Intenta ajustar tus filtros o términos de búsqueda."
+  },
+  "actions": {
+    "getDirections": "Obtener Direcciones"
+  },
+  "location": {
+    "schoolName": "Nombre de la Escuela",
+    "address": "Dirección",
+    "phone": "Teléfono",
+    "email": "Email",
+    "website": "Sitio Web",
+    "instructor": "Instructor Principal",
+    "premium": "Escuela Premium",
+    "notAvailable": "No Disponible",
+    "visitWebsite": "Visitar Sitio Web",
+    "emailSchool": "Enviar Email",
+    "callNow": "Llamar Ahora",
+    "premiumDescription": "Las Escuelas Premium Gracie Barra son academias que cumplen con un estándar más alto de excelencia dentro de la red Gracie Barra. Estas escuelas van más allá de los estándares operativos básicos, reflejando el más alto nivel de cumplimiento con la metodología, instalaciones y calidad de servicio de Gracie Barra."
+  },
+  "map": {
+    "loading": "Cargando mapa...",
+    "error": "Error al cargar mapa"
+  },
+  "languages": {
+    "en": "English",
+    "pt": "Português",
+    "es": "Español",
+    "fr": "Français"
+  }
+}

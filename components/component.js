@@ -6,6 +6,7 @@ import styles from "../styles/style.module.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Image from "next/image";
+import { useTranslation } from "../hooks/useTranslation";
 
 // Airtable setup
 const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
@@ -44,29 +45,21 @@ if (typeof window !== "undefined") {
 // Set the token for the geocoding client
 const mapboxClient = mapboxSdk({ accessToken: MAPBOX_TOKEN });
 
-// Default center coordinates (Riverside, CA)
-const DEFAULT_CENTER = [-117.3755, 33.9806];
+// Default center coordinates (World view)
+const DEFAULT_CENTER = [0, 0];
 
-const radiusOptions = [
-  { value: 10, label: "10 miles" },
-  { value: 25, label: "25 miles" },
-  { value: 50, label: "50 miles" },
-  { value: 100, label: "100 miles" },
-  { value: "any", label: "Any distance" },
+const getPremiumOptions = (t) => [
+  { value: "all", label: t("filters.allLocations") },
+  { value: "premium", label: t("filters.premium") },
 ];
 
-const premiumOptions = [
-  { value: "all", label: "All locations" },
-  { value: "premium", label: "Premium only" },
-];
-
-const countryOptions = (countries) => [
-  { value: "all", label: "All countries" },
+const getCountryOptions = (countries, t) => [
+  { value: "all", label: t("filters.country") },
   ...countries.map((country) => ({ value: country, label: country })),
 ];
 
-const regionOptions = (regions) => [
-  { value: "all", label: "All regions" },
+const getRegionOptions = (regions, t) => [
+  { value: "all", label: t("filters.region") },
   ...regions.map((region) => ({ value: region, label: region })),
 ];
 
@@ -321,6 +314,7 @@ const makePopupDraggable = (popupContent, popup) => {
 };
 
 const Component = () => {
+  const { t, locale, changeLanguage, availableLocales } = useTranslation();
   const mapContainer = React.useRef(null);
   const mapInstance = React.useRef(null);
   const userMarkerRef = React.useRef(null);
@@ -330,7 +324,6 @@ const Component = () => {
   const [instructorModalIsOpen, setInstructorModalIsOpen] = useState(false);
   const [instructorData, setInstructorData] = useState(null);
   const [searchAddress, setSearchAddress] = useState("");
-  const [searchRadius, setSearchRadius] = useState(50);
   const [premiumFilter, setPremiumFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [regionFilter, setRegionFilter] = useState("all");
@@ -356,48 +349,50 @@ const Component = () => {
   const [activeCard, setActiveCard] = useState(null);
   const [locationCache, setLocationCache] = useState(new Map());
   const [isSearching, setIsSearching] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
   const searchResultsRef = useRef(null);
   const mapRef = useRef(null);
 
   // First, define createLocationPopupContent with useCallback
-  const createLocationPopupContent = useCallback((location) => {
-    if (!location || typeof location !== "object") {
-      return "";
-    }
+  const createLocationPopupContent = useCallback(
+    (location) => {
+      if (!location || typeof location !== "object") {
+        return "";
+      }
 
-    // Handle both cases: fields at top level or nested under .fields
-    const fields = location.fields || location;
+      // Handle both cases: fields at top level or nested under .fields
+      const fields = location.fields || location;
 
-    const isPremium = fields[IS_PREMIUM_FIELD_ID] || false;
-    // Try multiple possible school name fields
-    const schoolName =
-      fields[SCHOOL_FIELD_ID] ||
-      fields["School Name"] ||
-      fields["Name"] ||
-      fields["Title"] ||
-      fields["Location Name"] ||
-      null;
+      const isPremium = fields[IS_PREMIUM_FIELD_ID] || false;
+      // Try multiple possible school name fields
+      const schoolName =
+        fields[SCHOOL_FIELD_ID] ||
+        fields["School Name"] ||
+        fields["Name"] ||
+        fields["Title"] ||
+        fields["Location Name"] ||
+        null;
 
-    const locationName =
-      schoolName || fields[ADDRESS_FIELD_ID] || "School Name Not Available";
-    const fullAddress = fields[ADDRESS_FIELD_ID] || "Address Not Available";
-    const instructor =
-      fields[HEAD_INSTRUCTOR_FIELD_ID] || "Instructor Not Available";
-    const phone = fields[PHONE_FIELD_ID];
-    const formattedPhone =
-      typeof phone === "string" ? phone : "Phone Not Available";
-    const phoneDigits =
-      typeof phone === "string" ? phone.replace(/[^0-9]/g, "") : "";
-    const email = fields[EMAIL_FIELD_ID];
-    const website = fields[WEBSITE_FIELD_ID];
-    const locationId = location.id || `${locationName}-${fullAddress}`;
+      const locationName =
+        schoolName || fields[ADDRESS_FIELD_ID] || t("location.notAvailable");
+      const fullAddress =
+        fields[ADDRESS_FIELD_ID] || t("location.notAvailable");
+      const instructor =
+        fields[HEAD_INSTRUCTOR_FIELD_ID] || t("location.notAvailable");
+      const phone = fields[PHONE_FIELD_ID];
+      const formattedPhone =
+        typeof phone === "string" ? phone : t("location.notAvailable");
+      const phoneDigits =
+        typeof phone === "string" ? phone.replace(/[^0-9]/g, "") : "";
+      const email = fields[EMAIL_FIELD_ID];
+      const website = fields[WEBSITE_FIELD_ID];
+      const locationId = location.id || `${locationName}-${fullAddress}`;
 
-    const premiumDescription =
-      "Gracie Barra Premium Schools are academies that meet a higher standard of excellence within the Gracie Barra network. These schools go beyond the basic operational standards, reflecting the highest level of compliance with Gracie Barra's methodology, facilities, and service quality.";
+      const premiumDescription = t("location.premiumDescription");
 
-    return `
+      return `
       <div class="${styles.locationCard}" data-location-id="${locationId}">
         <div class="${styles.locationHeader}" data-draggable="true">
           <div class="${styles.dragHandle}">⋮⋮</div>
@@ -406,9 +401,9 @@ const Component = () => {
             styles.closeButton
           }" onclick="this.closest('.mapboxgl-popup').remove()" aria-label="Close popup">×</button>
           <div class="${styles.locationBadge} ${
-      isPremium ? styles.premiumBadge : styles.regularBadge
-    }">
-            ${isPremium ? "Premium Location" : "Gracie Barra Location"}
+        isPremium ? styles.premiumBadge : styles.regularBadge
+      }">
+            ${isPremium ? t("location.premium") : t("location.schoolName")}
           </div>
           ${
             isPremium
@@ -423,17 +418,17 @@ const Component = () => {
         
         <div class="${styles.locationContent}">
           <div class="${styles.locationInfo}">
-            <h4>Address</h4>
+            <h4>${t("location.address")}</h4>
             <p>${fullAddress}</p>
           </div>
           
           <div class="${styles.locationInfo}">
-            <h4>Instructor</h4>
+            <h4>${t("location.instructor")}</h4>
             <p>${instructor}</p>
           </div>
           
           <div class="${styles.locationInfo}">
-            <h4>Phone</h4>
+            <h4>${t("location.phone")}</h4>
             <p>${formattedPhone}</p>
           </div>
           
@@ -441,7 +436,7 @@ const Component = () => {
             email
               ? `
           <div class="${styles.locationInfo}">
-            <h4>Email</h4>
+            <h4>${t("location.email")}</h4>
             <p>${email}</p>
           </div>
           `
@@ -452,8 +447,10 @@ const Component = () => {
             ${
               website
                 ? `
-              <a href="${website}" target="_blank" rel="noopener noreferrer" class="${styles.actionButton}">
-                Visit Website
+              <a href="${website}" target="_blank" rel="noopener noreferrer" class="${
+                    styles.actionButton
+                  }">
+                ${t("location.visitWebsite")}
               </a>
             `
                 : ""
@@ -462,7 +459,7 @@ const Component = () => {
               email
                 ? `
               <a href="mailto:${email}" class="${styles.actionButton}">
-                Email School
+                ${t("location.emailSchool")}
               </a>
             `
                 : ""
@@ -471,7 +468,7 @@ const Component = () => {
               phoneDigits
                 ? `
               <a href="tel:${phoneDigits}" class="${styles.actionButton}">
-                Call Now
+                ${t("location.callNow")}
               </a>
             `
                 : ""
@@ -479,15 +476,17 @@ const Component = () => {
             <a href="https://maps.google.com/?q=${encodeURIComponent(
               fullAddress
             )}" target="_blank" rel="noopener noreferrer" class="${
-      styles.actionButton
-    }">
-              Get Directions
+        styles.actionButton
+      }">
+              ${t("actions.getDirections")}
             </a>
           </div>
         </div>
       </div>
     `;
-  }, []);
+    },
+    [t]
+  );
 
   const closeAllPopups = useCallback(() => {
     if (activePopup) {
@@ -1148,7 +1147,7 @@ const Component = () => {
 
           addUserMarker([longitude, latitude]);
           setLocationError(null);
-          await runSearch([longitude, latitude], searchRadius, premiumFilter);
+          await runSearch([longitude, latitude], 50, premiumFilter);
         } catch (error) {
           // Only handle unhandled errors
           if (!error.handled) {
@@ -1212,7 +1211,7 @@ const Component = () => {
 
       if (geocodedLocations.length === 0) {
         setSearchResults([]);
-        setSearchStatus("Found 0 locations");
+        setSearchStatus(t("status.noResults"));
         return;
       }
 
@@ -1502,7 +1501,7 @@ const Component = () => {
           marker.getElement().addEventListener("click", (e) => {
             e.stopPropagation();
             handleLocationSelect({
-              ...location.fields,
+              ...location,
               coordinates: location.coordinates,
               id: uniqueId,
               index,
@@ -1511,7 +1510,7 @@ const Component = () => {
           });
 
           return {
-            ...location.fields,
+            ...location,
             uniqueId,
             originalId: location.id,
             index,
@@ -1642,14 +1641,29 @@ const Component = () => {
         container: mapContainer.current,
         style: "mapbox://styles/mapbox/streets-v12",
         center: DEFAULT_CENTER,
-        zoom: 10,
-        minZoom: 2,
+        zoom: 2,
+        minZoom: 1,
       });
 
-      map.on("load", () => {
+      map.on("load", async () => {
         console.log("Map loaded successfully");
         setMapInitialized(true);
         setIsMapLoading(false);
+
+        // Automatically fetch all locations on map load
+        try {
+          console.log("Auto-fetching all locations...");
+          setIsInitialLoading(true);
+          setSearchStatus(t("status.loadingLocations"));
+          await fetchLocations(true); // Force refresh to get all data
+          setSearchStatus(t("status.ready"));
+          setIsInitialLoading(false);
+          console.log("All locations fetched successfully");
+        } catch (error) {
+          console.error("Error auto-fetching locations:", error);
+          setSearchStatus(t("status.error"));
+          setIsInitialLoading(false);
+        }
       });
 
       map.on("error", (e) => {
@@ -1730,21 +1744,100 @@ const Component = () => {
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter" && searchQuery.trim()) {
       e.preventDefault();
-      runSearch();
+      handleSearch();
     }
   };
 
   const handleSearch = async () => {
-    setSearchStatus("Searching...");
+    setSearchStatus(t("status.searching"));
     try {
-      await runSearch(searchQuery, searchRadius, premiumFilter);
+      await runSearch(searchQuery, 50, premiumFilter);
       const resultCount = searchResults.length;
-      setSearchStatus(
-        `Found ${resultCount} ${resultCount === 1 ? "location" : "locations"}`
-      );
+      setSearchStatus(t("status.foundResults", { count: resultCount }));
     } catch (error) {
-      setSearchStatus("Search failed. Please try again.");
+      setSearchStatus(t("status.error"));
       console.error("Search error:", error);
+    }
+  };
+
+  const handleFilterChange = async (filterType, value) => {
+    if (filterType === "premium") {
+      setPremiumFilter(value);
+    } else if (filterType === "country") {
+      setCountryFilter(value);
+    }
+
+    // Trigger a re-filter of current results
+    if (searchResults.length > 0) {
+      setIsSearching(true);
+      setLoading(true);
+      setSearchStatus("Filtering locations...");
+
+      try {
+        // Apply the same filtering logic as showAllLocations
+        const filteredLocations = allLocations.filter((loc) => {
+          const currentPremiumFilter =
+            filterType === "premium" ? value : premiumFilter;
+          const currentCountryFilter =
+            filterType === "country" ? value : countryFilter;
+
+          if (
+            currentPremiumFilter === "premium" &&
+            !loc.fields[IS_PREMIUM_FIELD_ID]
+          ) {
+            return false;
+          }
+          if (
+            currentCountryFilter !== "all" &&
+            loc.fields[COUNTRY_FIELD_ID] !== currentCountryFilter
+          ) {
+            return false;
+          }
+          if (regionFilter !== "all") {
+            const region = loc.fields[REGION_FIELD_ID];
+            if (Array.isArray(region)) {
+              if (!region.includes(regionFilter)) return false;
+            } else if (region !== regionFilter) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        // Sort by name
+        const sortedLocations = filteredLocations.sort((a, b) => {
+          const nameA = a.fields[ADDRESS_FIELD_ID] || "";
+          const nameB = b.fields[ADDRESS_FIELD_ID] || "";
+          return nameA.localeCompare(nameB);
+        });
+
+        // Process locations
+        const processedLocations = sortedLocations.map((location, index) => {
+          const uniqueId = `${location.id || ""}-${index}-${
+            location.fields[ADDRESS_FIELD_ID] || ""
+          }`.replace(/[^a-zA-Z0-9]/g, "-");
+
+          return {
+            ...location,
+            uniqueId,
+            coordinates: [
+              parseFloat(location.fields[LONGITUDE_FIELD_ID]),
+              parseFloat(location.fields[LATITUDE_FIELD_ID]),
+            ],
+          };
+        });
+
+        setSearchResults(processedLocations);
+        setSearchStatus(
+          t("status.foundResults", { count: sortedLocations.length })
+        );
+      } catch (error) {
+        console.error("Error filtering locations:", error);
+        setSearchStatus(t("status.error"));
+      } finally {
+        setLoading(false);
+        setIsSearching(false);
+      }
     }
   };
 
@@ -1755,7 +1848,9 @@ const Component = () => {
       return;
     }
 
-    setSearchStatus("Loading all locations...");
+    setSearchStatus(t("status.loadingLocations"));
+    setIsSearching(true);
+    setLoading(true);
     try {
       // Fetch all locations and let the filter system handle display
       await fetchLocations(true);
@@ -1808,10 +1903,15 @@ const Component = () => {
 
       setSearchResults(processedLocations);
       setIsResultsVisible(true);
-      setSearchStatus(`Showing ${sortedLocations.length} locations`);
+      setSearchStatus(
+        t("status.foundResults", { count: sortedLocations.length })
+      );
     } catch (error) {
       console.error("Error showing all locations:", error);
-      setSearchStatus("Failed to load locations. Please try again.");
+      setSearchStatus(t("status.error"));
+    } finally {
+      setLoading(false);
+      setIsSearching(false);
     }
   };
 
@@ -1830,401 +1930,303 @@ const Component = () => {
   }, [searchResults]);
 
   return (
-    <div className={styles.container}>
+    <div className={styles.luxuryContainer}>
+      {/* Loading Overlay */}
+      {(isSearching || loading || isInitialLoading) && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingContent}>
+            <Image
+              src="/gracie_shield.png"
+              alt="Gracie Barra"
+              width={80}
+              height={80}
+              className={styles.loadingLogo}
+            />
+            <p className={styles.loadingText}>
+              {isSearching ? t("status.searching") : t("status.loading")}
+            </p>
+          </div>
+        </div>
+      )}
+
       <a href="#main-content" className={styles.skipLink}>
         Skip to main content
       </a>
 
-      <div className={styles.searchContainer}>
-        <div className={styles.searchControls}>
-          <div className={styles.headerSection}>
-            <div className={styles.mapLogo}>
-              <Image
-                src="/gb-logo.png"
-                alt="Gracie Barra Logo"
-                width={150}
-                height={40}
-                priority={true}
-                style={{ width: "auto", height: "40px" }}
-              />
-            </div>
-            <h1 className={styles.mainTitle}>Global Map</h1>
-          </div>
-
-          <div className={styles.searchSection}>
-            <div className={styles.searchInputGroup}>
-              <input
-                id="location-search"
-                type="text"
-                className={styles.searchInput}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search by city, state, or zip code"
-                aria-describedby="search-status"
-              />
-              <div className={styles.searchButtonGroup}>
-                <button
-                  onClick={handleSearch}
-                  className={`${styles.searchButton} ${styles.iconButton}`}
-                  disabled={isSearching || !searchQuery.trim()}
-                  aria-label={isSearching ? "Searching..." : "Search"}
-                  title="Search"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="20"
-                    height="20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                </button>
-                <button
-                  onClick={getUserLocation}
-                  className={`${styles.locationButton} ${styles.iconButton}`}
-                  title="Find my location"
-                  aria-label="Find my location"
-                  disabled={loading}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="20"
-                    height="20"
-                    fill="currentColor"
-                  >
-                    <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={showAllLocations}
-                  className={`${styles.allLocationsButton} ${styles.iconButton}`}
-                  disabled={isSearching}
-                  aria-label="Show all locations"
-                  title="Show all locations"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="20"
-                    height="20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M2 12h20" />
-                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.filterGroup}>
-              <div className={styles.filterControls}>
-                <div className={styles.filterItem}>
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    className={styles.filterIcon}
-                  >
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                  </svg>
-                  <select
-                    value={searchRadius}
-                    onChange={(e) => setSearchRadius(e.target.value)}
-                    className={styles.searchSelect}
-                    aria-label="Search radius"
-                  >
-                    {radiusOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className={styles.filterItem}>
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="16"
-                    height="16"
-                    className={styles.filterIcon}
-                  >
-                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                  </svg>
-                  <select
-                    value={premiumFilter}
-                    onChange={(e) => setPremiumFilter(e.target.value)}
-                    className={styles.searchSelect}
-                    aria-label="Location type filter"
-                  >
-                    {premiumOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Country Filter */}
-                <div className={styles.filterItem}>
-                  <svg
-                    className={styles.filterIcon}
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                  </svg>
-                  <select
-                    value={countryFilter}
-                    onChange={(e) => setCountryFilter(e.target.value)}
-                    className={styles.searchSelect}
-                    aria-label="Country filter"
-                  >
-                    {countryOptions(uniqueCountries).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Region Filter - Hidden */}
-                <div className={styles.filterItem} style={{ display: "none" }}>
-                  <svg
-                    className={styles.filterIcon}
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  <select
-                    value={regionFilter}
-                    onChange={(e) => setRegionFilter(e.target.value)}
-                    className={styles.searchSelect}
-                    aria-label="Region filter"
-                    disabled
-                  >
-                    {regionOptions(uniqueRegions).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {searchResults.length > 0 && (
-                  <div className={styles.filterItem}>
-                    <button
-                      onClick={() => setIsResultsVisible(!isResultsVisible)}
-                      className={`${styles.toggleResultsButton} ${styles.iconButton}`}
-                      aria-label={
-                        isResultsVisible ? "Hide results" : "Show results"
-                      }
-                      title={`${isResultsVisible ? "Hide" : "Show"} results (${
-                        searchResults.length
-                      })`}
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        width="16"
-                        height="16"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        fill="none"
-                      >
-                        {isResultsVisible ? (
-                          <path d="M19 9l-7 7-7-7" />
-                        ) : (
-                          <path d="M5 15l7-7 7 7" />
-                        )}
-                      </svg>
-                      <span className={styles.resultCount}>
-                        {searchResults.length}
-                      </span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div
-              id="search-status"
-              className={styles.srOnly}
-              role="status"
-              aria-live="polite"
-            >
-              {searchStatus}
-            </div>
-
-            {locationError && (
-              <div className={styles.errorMessage} role="alert">
-                <svg className={styles.errorIcon} viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                </svg>
-                <div className={styles.errorContent}>
-                  <p>{locationError}</p>
-                  {locationError.includes("Unable to") && !isRetrying && (
-                    <button
-                      onClick={getUserLocation}
-                      className={styles.retryButton}
-                      disabled={loading}
-                    >
-                      Try Again
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <main className={styles.mainContent}>
-        <div className={styles.mapSection}>
-          <div className={styles.mapWrapper}>
-            <div
-              ref={mapContainer}
-              className={styles.mapContainer}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-              }}
+      {/* Luxury Sidebar */}
+      <div className={styles.luxurySidebar}>
+        {/* Header */}
+        <div className={styles.sidebarHeader}>
+          <div className={styles.logoContainer}>
+            <Image
+              src="/gracie_shield.png"
+              alt="Gracie Barra Logo"
+              width={50}
+              height={50}
+              className={styles.logo}
             />
-            {isMapLoading && (
-              <div className={styles.mapOverlay}>
-                <div className={styles.mapLoading}>
-                  <p>Loading map...</p>
-                </div>
-              </div>
-            )}
-            {mapError && !isMapLoading && (
-              <div className={styles.mapOverlay}>
-                <div className={styles.mapError}>
-                  <p>{mapError}</p>
-                  <button onClick={() => window.location.reload()}>
-                    Retry
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className={styles.titleContainer}>
+              <h1 className={styles.sidebarTitle}>{t("header.title")}</h1>
+              <p className={styles.sidebarSubtitle}>{t("header.subtitle")}</p>
+            </div>
+          </div>
+          {/* Language Selector */}
+          <div className={styles.languageSelector}>
+            <select
+              value={locale}
+              onChange={(e) => changeLanguage(e.target.value)}
+              className={styles.languageSelect}
+              title="Select language"
+            >
+              {availableLocales.map((lang) => (
+                <option key={lang} value={lang}>
+                  {t(`languages.${lang}`)}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Search Results Panel */}
-        {searchResults.length > 0 && (
-          <div
-            className={`${styles.resultsList} ${
-              isResultsVisible ? styles.visible : ""
-            }`}
-          >
-            <div className={styles.resultsHeader}>
-              <h3>Search Results ({searchResults.length})</h3>
-              <button
-                className={styles.closeResults}
-                onClick={handleCloseResults}
-                aria-label="Close results"
-              >
+        {/* Compact Search & Filters */}
+        <div className={styles.compactSearchSection}>
+          {/* Search Bar */}
+          <div className={styles.searchBar}>
+            <div className={styles.searchInputWrapper}>
+              <div className={styles.searchIcon}>
                 <svg
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
-                  width="24"
-                  height="24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <path d="M18 6L6 18M6 6l12 12" />
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <path d="m21 21-4.35-4.35"></path>
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder={t("search.placeholder")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                className={styles.compactSearchInput}
+              />
+              <button
+                onClick={handleSearch}
+                disabled={isSearching || !searchQuery.trim()}
+                className={styles.searchButton}
+                title={t("search.button")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="m9 18 6-6-6-6"></path>
                 </svg>
               </button>
             </div>
-            <div className={styles.resultsContent}>
-              {searchResults.map((result) => (
+            <button
+              onClick={getUserLocation}
+              disabled={loading}
+              className={styles.locationButton}
+              title={t("search.locationButton")}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+
+          {/* Compact Filters */}
+          <div className={styles.compactFilters}>
+            <div className={styles.filterRow}>
+              <select
+                value={premiumFilter}
+                onChange={(e) => handleFilterChange("premium", e.target.value)}
+                className={styles.compactFilter}
+                title="Filter by location type (All locations or Premium only)"
+              >
+                {getPremiumOptions(t).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={countryFilter}
+                onChange={(e) => handleFilterChange("country", e.target.value)}
+                className={styles.compactFilter}
+                title="Filter by country to show locations in specific countries"
+              >
+                {getCountryOptions(uniqueCountries, t).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={showAllLocations}
+                disabled={isSearching}
+                className={styles.showAllButton}
+                title={t("search.showAll")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M2 12h20"></path>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Results Section */}
+        <div className={styles.resultsSection}>
+          <div className={styles.resultsHeader}>
+            <h3 className={styles.sectionTitle}>
+              {t("results.titleWithCount", {
+                count: searchResults ? searchResults.length : 0,
+              })}
+            </h3>
+          </div>
+
+          <div className={styles.luxuryResultsList}>
+            {searchResults && searchResults.length > 0 ? (
+              searchResults.map((result) => (
                 <div
                   key={result.uniqueId}
-                  className={`${styles.resultItem} ${
-                    activeCard === result.uniqueId ? styles.active : ""
+                  className={`${styles.luxuryResultItem} ${
+                    activeCard === result.uniqueId ? styles.activeResult : ""
                   }`}
                   onClick={() => handleResultItemClick(result)}
                   onKeyDown={(e) => handleKeyDown(e, result)}
                   tabIndex={0}
                   role="button"
                   aria-label={`${
-                    result.fields[SCHOOL_FIELD_ID] ||
-                    result.fields[ADDRESS_FIELD_ID]
+                    (result.fields &&
+                      (result.fields[SCHOOL_FIELD_ID] ||
+                        result.fields[ADDRESS_FIELD_ID])) ||
+                    "Location"
                   } - ${
                     result.distance
                       ? `${result.distance.toFixed(1)} miles away`
                       : ""
                   }`}
                 >
-                  <div className={styles.resultHeader}>
-                    <h4>
+                  <div className={styles.resultItemHeader}>
+                    <h4 className={styles.resultItemTitle}>
                       {(() => {
-                        // Try multiple possible school name fields
+                        // Try multiple possible school name fields with proper null checks
+                        if (!result.fields) return "Location";
+
                         const schoolName =
                           result.fields[SCHOOL_FIELD_ID] ||
                           result.fields["School Name"] ||
                           result.fields["Name"] ||
                           result.fields["Title"] ||
                           result.fields["Location Name"];
-                        return schoolName || result.fields[ADDRESS_FIELD_ID];
+                        return (
+                          schoolName ||
+                          result.fields[ADDRESS_FIELD_ID] ||
+                          "Location"
+                        );
                       })()}
                     </h4>
-                    <span className={styles.distance}>
-                      {result.distance
-                        ? `${result.distance.toFixed(1)} miles`
-                        : ""}
-                    </span>
+                    {result.fields && result.fields[IS_PREMIUM_FIELD_ID] && (
+                      <span className={styles.luxuryPremiumBadge}>Premium</span>
+                    )}
                   </div>
-                  <p>{result.fields[ADDRESS_FIELD_ID]}</p>
-                  {result.fields[IS_PREMIUM_FIELD_ID] && (
-                    <span className={styles.premiumBadge}>
-                      Premium Location
-                    </span>
-                  )}
+                  <div className={styles.resultItemDetails}>
+                    <p className={styles.resultItemAddress}>
+                      {result.fields
+                        ? result.fields[ADDRESS_FIELD_ID]
+                        : "Address not available"}
+                    </p>
+                    {result.distance && (
+                      <p className={styles.resultItemDistance}>
+                        {result.distance.toFixed(1)} miles away
+                      </p>
+                    )}
+                    {result.fields && result.fields[PHONE_FIELD_ID] && (
+                      <p className={styles.resultItemPhone}>
+                        📞 {result.fields[PHONE_FIELD_ID]}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              ))}
+              ))
+            ) : (
+              <div className={styles.noResults}>
+                <p>{t("results.noResults")}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Search Status */}
+        {searchStatus && (
+          <div className={styles.luxurySearchStatus}>{searchStatus}</div>
+        )}
+
+        {/* Error Messages */}
+        {locationError && (
+          <div className={styles.luxuryErrorMessage} role="alert">
+            <p>{locationError}</p>
+            {locationError.includes("Unable to") && !isRetrying && (
+              <button
+                onClick={getUserLocation}
+                className={styles.retryButton}
+                disabled={loading}
+              >
+                Try Again
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Full Height Map */}
+      <div className={styles.luxuryMapWrapper}>
+        <div ref={mapContainer} className={styles.luxuryMapContainer} />
+        {isMapLoading && (
+          <div className={styles.mapOverlay}>
+            <div className={styles.mapLoading}>
+              <p>Loading map...</p>
             </div>
           </div>
         )}
-      </main>
-
-      {/* Large modal removed - using small popup system instead */}
-
-      <Modal
-        isOpen={instructorModalIsOpen}
-        onRequestClose={closeInstructorModal}
-        contentLabel="Instructor Details"
-      >
-        {instructorData && (
-          <div className={styles.instructorDetails}>
-            <h2>{instructorData[HEAD_INSTRUCTOR_FIELD_ID]}</h2>
-            {instructorData["Photo (from Instructors)"] &&
-              instructorData["Photo (from Instructors)"].map((photo, index) => (
-                <Image
-                  key={index}
-                  src={photo.url}
-                  alt={instructorData[HEAD_INSTRUCTOR_FIELD_ID]}
-                  width={200}
-                  height={200}
-                  style={{ marginBottom: 10 }}
-                />
-              ))}
-            <p>{instructorData["Instructor Description"]}</p>
+        {mapError && !isMapLoading && (
+          <div className={styles.mapOverlay}>
+            <div className={styles.mapError}>
+              <p>{mapError}</p>
+              <button onClick={() => window.location.reload()}>Retry</button>
+            </div>
           </div>
         )}
-      </Modal>
+      </div>
     </div>
   );
 };

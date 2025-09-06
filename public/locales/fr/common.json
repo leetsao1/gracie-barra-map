@@ -1,0 +1,59 @@
+{
+  "header": {
+    "title": "Gracie Barra",
+    "subtitle": "Trouver une École"
+  },
+  "search": {
+    "placeholder": "Rechercher des emplacements...",
+    "button": "Rechercher",
+    "locationButton": "Utiliser ma position",
+    "showAll": "Afficher tous les emplacements"
+  },
+  "filters": {
+    "premium": "Premium uniquement",
+    "country": "Tous les pays",
+    "region": "Toutes les régions",
+    "allLocations": "Tous les emplacements"
+  },
+  "status": {
+    "loading": "Chargement...",
+    "searching": "Recherche...",
+    "loadingLocations": "Chargement des emplacements...",
+    "ready": "Prêt à rechercher",
+    "error": "Erreur lors du chargement des emplacements",
+    "noResults": "Aucun emplacement trouvé",
+    "foundResults": "{{count}} emplacements trouvés"
+  },
+  "results": {
+    "title": "Résultats de Recherche",
+    "titleWithCount": "Résultats de Recherche ({{count}})",
+    "noResults": "Aucun résultat trouvé. Essayez d'ajuster vos filtres ou termes de recherche."
+  },
+  "actions": {
+    "getDirections": "Obtenir les Directions"
+  },
+  "location": {
+    "schoolName": "Nom de l'École",
+    "address": "Adresse",
+    "phone": "Téléphone",
+    "email": "Email",
+    "website": "Site Web",
+    "instructor": "Instructeur Principal",
+    "premium": "École Premium",
+    "notAvailable": "Non Disponible",
+    "visitWebsite": "Visiter le Site Web",
+    "emailSchool": "Envoyer un Email",
+    "callNow": "Appeler Maintenant",
+    "premiumDescription": "Les Écoles Premium Gracie Barra sont des académies qui répondent à un standard plus élevé d'excellence au sein du réseau Gracie Barra. Ces écoles vont au-delà des standards opérationnels de base, reflétant le plus haut niveau de conformité avec la méthodologie, les installations et la qualité de service de Gracie Barra."
+  },
+  "map": {
+    "loading": "Chargement de la carte...",
+    "error": "Erreur de chargement de la carte"
+  },
+  "languages": {
+    "en": "English",
+    "pt": "Português",
+    "es": "Español",
+    "fr": "Français"
+  }
+}
