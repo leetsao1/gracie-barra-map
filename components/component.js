@@ -35,7 +35,7 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 // Set the access token for mapboxgl
 if (typeof window !== "undefined") {
   if (!MAPBOX_TOKEN) {
-    console.error("Mapbox token is missing!");
+    // Mapbox token is missing
   } else {
     mapboxgl.accessToken = MAPBOX_TOKEN;
     mapboxgl.workerClass = null; // Disable worker to avoid cross-origin issues
@@ -190,11 +190,9 @@ const makePopupDraggable = (popupContent, popup) => {
   // Add drag handle to the header - look for the draggable header
   const header = popupContent.querySelector("[data-draggable='true']");
   if (!header) {
-    console.log("Header not found for dragging");
+
     return;
   }
-
-  console.log("Setting up drag functionality for popup");
 
   // Add cursor style to indicate draggable
   header.style.cursor = "grab";
@@ -202,7 +200,7 @@ const makePopupDraggable = (popupContent, popup) => {
   header.style.touchAction = "none"; // Prevent scrolling on touch devices
 
   const startDrag = (e) => {
-    console.log("Drag started");
+
     isDragging = true;
     startX = e.clientX || e.touches[0].clientX;
     startY = e.clientY || e.touches[0].clientY;
@@ -266,7 +264,7 @@ const makePopupDraggable = (popupContent, popup) => {
 
   const stopDrag = (e) => {
     if (!isDragging) return;
-    console.log("Drag ended");
+
     isDragging = false;
 
     // Cancel any pending animation frame
@@ -511,11 +509,7 @@ const Component = () => {
   const openPopup = useCallback(
     (popup, coordinates, locationId, locationData) => {
       if (!locationData || !coordinates || !mapInstance.current) {
-        console.log("Missing required data for popup:", {
-          locationData,
-          coordinates,
-          mapInstance: !!mapInstance.current,
-        });
+
         return;
       }
 
@@ -533,7 +527,7 @@ const Component = () => {
 
         const content = createLocationPopupContent(locationData);
         if (!content) {
-          console.log("No content generated for popup");
+
           return;
         }
 
@@ -557,7 +551,7 @@ const Component = () => {
 
         // Set up close handler
         newPopup.on("close", () => {
-          console.log("Popup close event triggered");
+
           setActivePopup(null);
           setActiveCard(null);
           setShowLocationDetails(false);
@@ -568,7 +562,7 @@ const Component = () => {
         setActiveCard(locationId);
         setShowLocationDetails(true);
       } catch (error) {
-        console.error("Error creating popup:", error);
+
       }
     },
     [mapInstance, createLocationPopupContent, closeAllPopups]
@@ -611,17 +605,12 @@ const Component = () => {
           parseFloat(loc.fields[LONGITUDE_FIELD_ID]), // Longitude
           parseFloat(loc.fields[LATITUDE_FIELD_ID]), // Latitude
         ];
-        console.log(
-          `Processing location: ${loc.fields[ADDRESS_FIELD_ID]} with coordinates:`,
-          coords
-        );
+
         return {
           ...loc,
           coordinates: coords,
         };
       });
-
-    console.log("Direct locations with coordinates:", directLocations.length);
 
     // Only geocode locations without coordinates
     const locationsToGeocode = validLocations.filter(
@@ -673,7 +662,7 @@ const Component = () => {
                 return { ...location, coordinates: coords };
               }
             } catch (error) {
-              console.error(`Error geocoding address: ${address}`, error);
+
             }
             return null;
           });
@@ -696,7 +685,7 @@ const Component = () => {
       // Combine direct coordinates with geocoded results
       return [...directLocations, ...results.flat(), ...cachedResults];
     } catch (error) {
-      console.error("Error in batch geocoding:", error);
+
       return directLocations; // Return at least the direct coordinate locations
     }
   };
@@ -741,21 +730,8 @@ const Component = () => {
       .map((field) => `fields[]=${encodeURIComponent(field)}`)
       .join("&");
 
-    console.log("Requesting fields:", fields);
-    console.log("Fields param:", fieldsParam);
-
     try {
       // Debug environment variables
-      console.log("Environment Variables Check:", {
-        AIRTABLE_BASE_ID: AIRTABLE_BASE_ID,
-        AIRTABLE_TABLE_ID: AIRTABLE_TABLE_ID,
-        AIRTABLE_VIEW_ID: AIRTABLE_VIEW_ID,
-        AIRTABLE_API_KEY: AIRTABLE_API_KEY
-          ? `${AIRTABLE_API_KEY.substring(0, 10)}...`
-          : "MISSING",
-        LATITUDE_FIELD_ID: LATITUDE_FIELD_ID,
-        LONGITUDE_FIELD_ID: LONGITUDE_FIELD_ID,
-      });
 
       // First try to get from cache
       const cacheKey = `${AIRTABLE_BASE_ID}-${AIRTABLE_TABLE_ID}-${AIRTABLE_VIEW_ID}`;
@@ -769,7 +745,7 @@ const Component = () => {
         cacheTimestamp &&
         Date.now() - parseInt(cacheTimestamp) < 300000
       ) {
-        console.log("Using cached location data");
+
         return JSON.parse(cachedData);
       }
 
@@ -777,7 +753,7 @@ const Component = () => {
       if (forceRefresh) {
         localStorage.removeItem(cacheKey);
         localStorage.removeItem(`${cacheKey}-timestamp`);
-        console.log("Forcing refresh of location data");
+
       }
 
       do {
@@ -795,14 +771,7 @@ const Component = () => {
         });
 
         if (!response.ok) {
-          console.error("Airtable API Error Details:", {
-            status: response.status,
-            statusText: response.statusText,
-            url: url,
-            baseId: AIRTABLE_BASE_ID,
-            tableId: AIRTABLE_TABLE_ID,
-            viewId: AIRTABLE_VIEW_ID,
-          });
+
           throw new Error(
             `Airtable API error: ${response.status} ${response.statusText}`
           );
@@ -816,18 +785,6 @@ const Component = () => {
             record.fields[LONGITUDE_FIELD_ID] &&
             record.fields[LATITUDE_FIELD_ID]
         );
-
-        console.log("Valid records with coordinates:", validRecords.length);
-        console.log("Sample valid record:", validRecords[0]);
-        console.log("Field ID check:", {
-          LONGITUDE_FIELD_ID: LONGITUDE_FIELD_ID,
-          LATITUDE_FIELD_ID: LATITUDE_FIELD_ID,
-          SCHOOL_FIELD_ID: SCHOOL_FIELD_ID,
-          hasLongitude: data.records[0]?.fields[LONGITUDE_FIELD_ID],
-          hasLatitude: data.records[0]?.fields[LATITUDE_FIELD_ID],
-          hasSchool: data.records[0]?.fields[SCHOOL_FIELD_ID],
-          schoolValue: data.records[0]?.fields[SCHOOL_FIELD_ID],
-        });
 
         allRecords = [...allRecords, ...validRecords];
         offset = data.offset;
@@ -873,7 +830,7 @@ const Component = () => {
 
       return allRecords;
     } catch (error) {
-      console.error("Error fetching data from Airtable:", error);
+
       setLocationError("Unable to fetch locations. Please try again later.");
       return [];
     }
@@ -917,7 +874,7 @@ const Component = () => {
       }
       return `${coords[1]}, ${coords[0]}`; // Fallback to coords if no address is found
     } catch (error) {
-      console.error("Error reverse geocoding:", error);
+
       return `${coords[1]}, ${coords[0]}`; // Fallback in case of error
     }
   };
@@ -944,12 +901,11 @@ const Component = () => {
   const addUserMarker = useCallback(
     (coordinates) => {
       if (!mapInstance.current) {
-        console.error("Map not initialized");
+
         return;
       }
 
       try {
-        console.log("Attempting to add user marker at:", coordinates);
 
         // Validate coordinates
         if (
@@ -959,7 +915,7 @@ const Component = () => {
           !isFinite(coordinates[0]) ||
           !isFinite(coordinates[1])
         ) {
-          console.error("Invalid coordinates:", coordinates);
+
           return;
         }
 
@@ -969,8 +925,6 @@ const Component = () => {
 
         // Remove existing user marker
         removeUserMarker();
-
-        console.log("Creating user marker at coordinates:", [lng, lat]);
 
         // Create marker element with inner dot for pulsing effect
         const el = document.createElement("div");
@@ -998,9 +952,8 @@ const Component = () => {
         userMarkerRef.current = newUserMarker;
         setUserLocation([lng, lat]);
 
-        console.log("User marker added successfully at:", [lng, lat]);
       } catch (error) {
-        console.error("Error adding user marker:", error);
+
       }
     },
     [removeUserMarker]
@@ -1455,7 +1408,7 @@ const Component = () => {
             }
           }
         } catch (error) {
-          console.error("Error in search:", error);
+
         }
       } else if (Array.isArray(addressOrCoords)) {
         searchCoords = addressOrCoords;
@@ -1558,7 +1511,7 @@ const Component = () => {
         setIsSearchCollapsed(true);
       }
     } catch (error) {
-      console.error("Error in search:", error);
+
       setLocationError(
         "An error occurred during the search. Please try again."
       );
@@ -1575,7 +1528,7 @@ const Component = () => {
   const handleLocationSelect = useCallback(
     (location) => {
       if (!location || !location.coordinates) {
-        console.log("Invalid location data:", location);
+
         return;
       }
 
@@ -1621,17 +1574,14 @@ const Component = () => {
 
   // Initialize map
   useEffect(() => {
-    console.log("Map initialization starting...");
-    console.log("Container ref:", mapContainer.current);
-    console.log("Mapbox token:", MAPBOX_TOKEN?.substring(0, 8) + "...");
 
     if (!mapContainer.current) {
-      console.error("Map container not found");
+
       return;
     }
 
     if (mapInstance.current) {
-      console.log("Map already initialized");
+
       return;
     }
 
@@ -1650,35 +1600,35 @@ const Component = () => {
       });
 
       map.on("load", async () => {
-        console.log("Map loaded successfully");
+
         setMapInitialized(true);
         setIsMapLoading(false);
 
         // Automatically fetch all locations on map load
         try {
-          console.log("Auto-fetching all locations...");
+
           setIsInitialLoading(true);
           setSearchStatus(t("status.loadingLocations"));
           await fetchLocations(true); // Force refresh to get all data
           setSearchStatus(t("status.ready"));
           setIsInitialLoading(false);
-          console.log("All locations fetched successfully");
+
         } catch (error) {
-          console.error("Error auto-fetching locations:", error);
+
           setSearchStatus(t("status.error"));
           setIsInitialLoading(false);
         }
       });
 
       map.on("error", (e) => {
-        console.error("Map error:", e);
+
         setMapError(e.error?.message || "An error occurred loading the map");
       });
 
       mapInstance.current = map;
       setMap(map);
     } catch (error) {
-      console.error("Error creating map:", error);
+
       setMapError(error.message);
       setIsMapLoading(false);
     }
@@ -1760,7 +1710,7 @@ const Component = () => {
       setSearchStatus(t("status.foundResults", { count: resultCount }));
     } catch (error) {
       setSearchStatus(t("status.error"));
-      console.error("Search error:", error);
+
     }
   };
 
@@ -1836,7 +1786,7 @@ const Component = () => {
           t("status.foundResults", { count: sortedLocations.length })
         );
       } catch (error) {
-        console.error("Error filtering locations:", error);
+
         setSearchStatus(t("status.error"));
       } finally {
         setLoading(false);
@@ -1847,7 +1797,7 @@ const Component = () => {
 
   const showAllLocations = async () => {
     if (!mapInstance.current || !mapInitialized) {
-      console.error("Map not initialized");
+
       setSearchStatus("Please wait for the map to initialize...");
       return;
     }
@@ -1911,7 +1861,7 @@ const Component = () => {
         t("status.foundResults", { count: sortedLocations.length })
       );
     } catch (error) {
-      console.error("Error showing all locations:", error);
+
       setSearchStatus(t("status.error"));
     } finally {
       setLoading(false);

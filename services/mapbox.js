@@ -31,7 +31,6 @@ export const geocodeAddress = async (address) => {
 
     return response.body.features[0].center;
   } catch (error) {
-    console.error("Error geocoding address:", error);
     throw error;
   }
 };
@@ -59,7 +58,6 @@ export const reverseGeocode = async (coords) => {
     }
     return `${coords[1]}, ${coords[0]}`; // Fallback to coordinates
   } catch (error) {
-    console.error("Error reverse geocoding:", error);
     return `${coords[1]}, ${coords[0]}`; // Fallback to coordinates
   }
 };

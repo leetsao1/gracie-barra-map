@@ -43,7 +43,6 @@ export const useMap = () => {
           bounceMarker(location.marker);
         }
       } catch (error) {
-        console.error("Error selecting location:", error);
         setError("Error selecting location. Please try again.");
       } finally {
         setLoading(false);
@@ -86,7 +85,6 @@ export const useMap = () => {
       // Bounce the marker
       bounceMarker(marker);
     } catch (error) {
-      console.error("Error getting location:", error);
       setError(
         "Unable to determine your location. Please try again or enter an address manually."
       );

@@ -14,7 +14,6 @@ export const animateMapMove = (
 ) => {
   return new Promise((resolve) => {
     if (!map || !map.flyTo) {
-      console.error("Invalid map instance provided");
       resolve();
       return;
     }
@@ -40,7 +39,6 @@ export const animateMapMove = (
  */
 export const bounceMarker = (marker) => {
   if (!marker || !marker.setOffset) {
-    console.error("Invalid marker instance provided");
     return;
   }
 

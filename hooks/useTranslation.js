@@ -18,7 +18,6 @@ export const useTranslation = () => {
         setTranslations(data);
         setLoading(false);
       } catch (error) {
-        console.error("Error loading translations:", error);
         // Fallback to English
         try {
           const fallbackResponse = await fetch("/locales/en/common.json");
@@ -40,7 +39,6 @@ export const useTranslation = () => {
             });
           }
         } catch (fallbackError) {
-          console.error("Error loading fallback translations:", fallbackError);
           // Use minimal fallback
           setTranslations({
             header: { title: "Gracie Barra", subtitle: "Find a School" },
@@ -70,7 +68,6 @@ export const useTranslation = () => {
     }
 
     if (value === undefined) {
-      console.warn(`Translation missing for key: ${key}`);
       return key;
     }
 

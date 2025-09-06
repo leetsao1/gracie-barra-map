@@ -54,7 +54,6 @@ const MapComponent = ({ onMapLoad, onLocationSelect }) => {
     // Handle errors
     initMap.on("error", (e) => {
       setError("Error loading map. Please try again.");
-      console.error("Map error:", e);
     });
 
     // Cleanup function

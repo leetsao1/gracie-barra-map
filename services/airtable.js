@@ -65,17 +65,12 @@ export const fetchLocations = async () => {
       }
 
       const data = await response.json();
-      console.log("Airtable API response:", data);
-      console.log("Records in this batch:", data.records.length);
       allRecords = [...allRecords, ...data.records];
       offset = data.offset;
     } while (offset);
 
-    console.log("Total records fetched from Airtable:", allRecords.length);
-    console.log("Sample record:", allRecords[0]);
     return allRecords;
   } catch (error) {
-    console.error("Error fetching data from Airtable:", error);
     throw error;
   }
 };
@@ -134,7 +129,6 @@ export const filterLocations = async (locations, criteria) => {
       return radius === "any" || distance <= radius;
     });
   } catch (error) {
-    console.error("Error filtering locations:", error);
     throw error;
   }
 };

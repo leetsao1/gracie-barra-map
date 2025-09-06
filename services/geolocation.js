@@ -62,7 +62,6 @@ export const getIPLocation = async () => {
       longitude: data.longitude,
     };
   } catch (error) {
-    console.error("Error getting IP location:", error);
     throw error;
   }
 };
@@ -76,13 +75,11 @@ export const getLocationWithFallback = async () => {
     // Try browser geolocation first
     return await getUserLocation();
   } catch (error) {
-    console.log("Browser geolocation failed, trying IP-based location:", error);
 
     try {
       // Fall back to IP-based location
       return await getIPLocation();
     } catch (ipError) {
-      console.error("IP-based location failed:", ipError);
       throw new Error("Unable to determine your location");
     }
   }

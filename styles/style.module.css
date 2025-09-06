@@ -386,7 +386,7 @@
 
 /* Mobile touch indicators */
 .mobileSidebar::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 8px;
   left: 50%;
@@ -410,7 +410,7 @@
 }
 
 .mobileSidebar .searchInputWrapper::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -8px;
   left: 0;
@@ -622,7 +622,7 @@
 
 /* Mobile swipe indicator */
 .mobileSidebar::after {
-  content: 'Swipe down to minimize';
+  content: "Swipe down to minimize";
   position: absolute;
   bottom: 8px;
   left: 50%;
@@ -639,20 +639,20 @@
   .mobileSidebar {
     max-height: 50vh;
   }
-  
+
   .mobileSidebar .luxuryResultsList {
     max-height: 30vh;
   }
-  
+
   .mobileSidebar .sidebarHeader {
     padding: 8px 16px;
     min-height: 50px;
   }
-  
+
   .mobileSidebar .sidebarTitle {
     font-size: 18px;
   }
-  
+
   .mobileSidebar .sidebarSubtitle {
     font-size: 10px;
   }
@@ -1068,7 +1068,9 @@
 
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  .luxuryContainer *,
+  .luxurySidebar *,
+  .luxuryMapWrapper * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

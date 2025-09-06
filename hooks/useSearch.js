@@ -90,7 +90,6 @@ export const useSearch = (map) => {
           map.fitBounds(bounds, { padding: 50 });
         }
       } catch (error) {
-        console.error("Search error:", error);
         setError("Error performing search. Please try again.");
       } finally {
         setLoading(false);
