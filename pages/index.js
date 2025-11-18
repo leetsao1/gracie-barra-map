@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Head from "next/head";
 import Modal from "react-modal";
 import Component from "../components/component";
 import "mapbox-gl/dist/mapbox-gl.css";

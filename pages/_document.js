@@ -4,10 +4,10 @@ export default function Document() {
   return (
     <Html>
       <Head>
-        {/* Mobile viewport meta tag */}
+        {/* Viewport meta tag - should be in _document.js */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+          content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover"
         />
 
         {/* Mobile web app meta tags */}
@@ -19,7 +19,6 @@ export default function Document() {
         {/* Theme color for mobile browsers */}
         <meta name="theme-color" content="#ffffff" />
         <meta name="msapplication-navbutton-color" content="#ffffff" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
         {/* Prevent zoom on input focus (iOS) */}
         <meta name="format-detection" content="telephone=no" />

@@ -1,49 +1,47 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import mapboxgl from "mapbox-gl";
-import mapboxSdk from "@mapbox/mapbox-sdk/services/geocoding";
-import Modal from "react-modal";
 import styles from "../styles/style.module.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Image from "next/image";
 import { useTranslation } from "../hooks/useTranslation";
+import safeStorage from "../utils/safeStorage";
+import { debounce } from "../utils/debounce";
 
-// Airtable setup
-const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
-const AIRTABLE_TABLE_ID = process.env.NEXT_PUBLIC_AIRTABLE_TABLE_ID;
-const AIRTABLE_VIEW_ID = process.env.NEXT_PUBLIC_AIRTABLE_VIEW_ID;
-const LATITUDE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_LATITUDE_FIELD_ID;
-const LONGITUDE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_LONGITUDE_FIELD_ID;
-const ADDRESS_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_ADDRESS_FIELD_ID;
-const SCHOOL_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_SCHOOL_FIELD_ID;
+// NOTE: Field IDs are only needed for reference in the component
+// The actual API calls are now made through server-side routes (/api/locations, /api/geocode)
+// These constants are kept for backward compatibility with the component logic
+const LATITUDE_FIELD_ID = "fldoASseEokHCg17B";
+const LONGITUDE_FIELD_ID = "fldQuP8QlHcGLuA1N";
+const ADDRESS_FIELD_ID = "fldViafjwGIa9SV5A";
+const SCHOOL_FIELD_ID = "fldasDCUgASfUdKzS";
+const HEAD_INSTRUCTOR_FIELD_ID = "fldE7yKKPdguZQxf3";
+const PHONE_FIELD_ID = "fldEfLIrihVPIs9Ig";
+const EMAIL_FIELD_ID = "fldlt9aaBsG1BsGOW";
+const WEBSITE_FIELD_ID = "fldNf9Wy31ytQSHih";
+const IS_PREMIUM_FIELD_ID = "fldz7T3CgMibrITSF";
+const COUNTRY_FIELD_ID = "fldUzCdFx9eaLaK00";
+const REGION_FIELD_ID = "fldYWyxokH8Zd9BIU";
 
-// SCHOOL_FIELD_ID loaded from environment
-const HEAD_INSTRUCTOR_FIELD_ID =
-  process.env.NEXT_PUBLIC_AIRTABLE_HEAD_INSTRUCTOR_FIELD_ID;
-const PHONE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_PHONE_FIELD_ID;
-const EMAIL_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_EMAIL_FIELD_ID;
-const WEBSITE_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_WEBSITE_FIELD_ID;
-const IS_PREMIUM_FIELD_ID =
-  process.env.NEXT_PUBLIC_AIRTABLE_IS_PREMIUM_FIELD_ID;
-const COUNTRY_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_COUNTRY_FIELD_ID;
-const REGION_FIELD_ID = process.env.NEXT_PUBLIC_AIRTABLE_REGION_FIELD_ID;
+// Airtable configuration (IDs only - not sensitive)
+// These are used for cache keys and component logic
+// The actual API calls use server-side routes with secure credentials
+const AIRTABLE_BASE_ID = "app9BVOQW0SHGvr9S";
+const AIRTABLE_TABLE_ID = "tblsIFvz8ddEDQn12";
+const AIRTABLE_VIEW_ID = "viwrD30IEqinIIddq";
 
-// Mapbox access token
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+// Mapbox display token (restricted to display only - no geocoding)
+const MAPBOX_DISPLAY_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_DISPLAY_TOKEN;
 
-// Set the access token for mapboxgl
+// Set the access token for mapboxgl (display only)
 if (typeof window !== "undefined") {
-  if (!MAPBOX_TOKEN) {
-    // Mapbox token is missing
+  if (!MAPBOX_DISPLAY_TOKEN) {
+    console.error("Mapbox display token is missing");
   } else {
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    mapboxgl.accessToken = MAPBOX_DISPLAY_TOKEN;
     mapboxgl.workerClass = null; // Disable worker to avoid cross-origin issues
   }
 }
-
-// Set the token for the geocoding client
-const mapboxClient = mapboxSdk({ accessToken: MAPBOX_TOKEN });
 
 // Default center coordinates (World view)
 const DEFAULT_CENTER = [0, 0];
@@ -63,26 +61,6 @@ const getRegionOptions = (regions, t) => [
   ...regions.map((region) => ({ value: region, label: region })),
 ];
 
-// Custom Modal styles to override react-modal default styles
-const customModalStyles = (pinColor) => ({
-  overlay: {
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    zIndex: 1000, // Ensure modal overlay is above other content
-  },
-  content: {
-    position: "relative",
-    inset: 0,
-    margin: "auto",
-    width: "70%",
-    maxWidth: "90%",
-    borderRadius: "12px",
-    padding: "30px",
-    backgroundColor: "#fff",
-    border: `3px solid ${pinColor}`, // Set border color to match pin color
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)", // Custom box shadow
-  },
-});
-
 // Haversine formula to calculate distance between two latitude/longitude points
 function haversineDistance(coords1, coords2) {
   const [lon1, lat1] = coords1;
@@ -101,6 +79,12 @@ function haversineDistance(coords1, coords2) {
 
   const distanceInMeters = R * c; // in meters
   return distanceInMeters / 1609.34; // Convert meters to miles
+}
+
+// Mobile detection utility
+function isMobileDevice() {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 // Add this helper function near the top with other utility functions
@@ -183,6 +167,11 @@ const calculatePopupOffset = () => {
 
 // Make popup draggable
 const makePopupDraggable = (popupContent, popup) => {
+  // Disable dragging on mobile for better performance
+  if (window.innerWidth <= 768) {
+    return;
+  }
+
   let isDragging = false;
   let startX, startY, initialOffsetX, initialOffsetY;
   let animationFrame = null;
@@ -190,7 +179,6 @@ const makePopupDraggable = (popupContent, popup) => {
   // Add drag handle to the header - look for the draggable header
   const header = popupContent.querySelector("[data-draggable='true']");
   if (!header) {
-
     return;
   }
 
@@ -200,7 +188,6 @@ const makePopupDraggable = (popupContent, popup) => {
   header.style.touchAction = "none"; // Prevent scrolling on touch devices
 
   const startDrag = (e) => {
-
     isDragging = true;
     startX = e.clientX || e.touches[0].clientX;
     startY = e.clientY || e.touches[0].clientY;
@@ -316,6 +303,8 @@ const Component = () => {
   const mapContainer = React.useRef(null);
   const mapInstance = React.useRef(null);
   const userMarkerRef = React.useRef(null);
+  const markersRef = React.useRef([]); // Store all markers for proper cleanup
+  const markerEventHandlersRef = React.useRef(new Map()); // Track event handlers
   const [map, setMap] = useState(null);
   const [mapInitialized, setMapInitialized] = useState(false);
   // Modal states removed - using small popup system instead
@@ -354,8 +343,48 @@ const Component = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [touchStartY, setTouchStartY] = useState(0);
   const [touchStartX, setTouchStartX] = useState(0);
+  const [isInIframe, setIsInIframe] = useState(false);
+  const [sidebarHeight, setSidebarHeight] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isChromeEmulator, setIsChromeEmulator] = useState(false);
   const searchResultsRef = useRef(null);
   const mapRef = useRef(null);
+
+  // Phone number formatting function
+  const formatPhoneNumber = (phone) => {
+    if (!phone || typeof phone !== "string") return "";
+
+    // Remove all non-digit characters
+    const digits = phone.replace(/[^0-9]/g, "");
+
+    // Brazilian numbers (country code 55)
+    if (digits.startsWith("55") && digits.length >= 12) {
+      const countryCode = digits.slice(0, 2);
+      const areaCode = digits.slice(2, 4);
+      const firstPart = digits.slice(4, 9);
+      const secondPart = digits.slice(9);
+      return `+${countryCode} (${areaCode}) ${firstPart}-${secondPart}`;
+    }
+
+    // US/Canada numbers (country code 1)
+    if (digits.startsWith("1") && digits.length === 11) {
+      const areaCode = digits.slice(1, 4);
+      const firstPart = digits.slice(4, 7);
+      const secondPart = digits.slice(7);
+      return `+1 (${areaCode}) ${firstPart}-${secondPart}`;
+    }
+
+    // US/Canada numbers without country code
+    if (digits.length === 10 && !digits.startsWith("55")) {
+      const areaCode = digits.slice(0, 3);
+      const firstPart = digits.slice(3, 6);
+      const secondPart = digits.slice(6);
+      return `(${areaCode}) ${firstPart}-${secondPart}`;
+    }
+
+    // Default: return original if no pattern matches
+    return phone;
+  };
 
   // First, define createLocationPopupContent with useCallback
   const createLocationPopupContent = useCallback(
@@ -385,7 +414,7 @@ const Component = () => {
         fields[HEAD_INSTRUCTOR_FIELD_ID] || t("location.notAvailable");
       const phone = fields[PHONE_FIELD_ID];
       const formattedPhone =
-        typeof phone === "string" ? phone : t("location.notAvailable");
+        typeof phone === "string" ? formatPhoneNumber(phone) : t("location.notAvailable");
       const phoneDigits =
         typeof phone === "string" ? phone.replace(/[^0-9]/g, "") : "";
       const email = fields[EMAIL_FIELD_ID];
@@ -400,7 +429,7 @@ const Component = () => {
           <div class="${styles.dragHandle}">⋮⋮</div>
           <h3>${locationName}</h3>
           <button class="${
-            styles.closeButton
+            styles.popupCloseButton
           }" onclick="this.closest('.mapboxgl-popup').remove()" aria-label="Close popup">×</button>
           <div class="${styles.locationBadge} ${
         isPremium ? styles.premiumBadge : styles.regularBadge
@@ -421,74 +450,69 @@ const Component = () => {
         <div class="${styles.locationContent}">
           <div class="${styles.locationInfo}">
             <h4>${t("location.address")}</h4>
-            <p>${fullAddress}</p>
+            <p><a href="https://maps.google.com/?q=${encodeURIComponent(
+              fullAddress
+            )}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: none;">${fullAddress}</a></p>
           </div>
-          
+
           <div class="${styles.locationInfo}">
             <h4>${t("location.instructor")}</h4>
             <p>${instructor}</p>
           </div>
-          
+
           <div class="${styles.locationInfo}">
             <h4>${t("location.phone")}</h4>
-            <p>${formattedPhone}</p>
+            <p>${
+              phoneDigits
+                ? `<a href="tel:${phoneDigits}" style="color: #007bff; text-decoration: none;">${formattedPhone}</a>`
+                : formattedPhone
+            }</p>
           </div>
-          
+
           ${
             email
               ? `
           <div class="${styles.locationInfo}">
             <h4>${t("location.email")}</h4>
-            <p>${email}</p>
+            <p><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></p>
           </div>
           `
               : ""
           }
           
+          ${
+            website
+              ? `
           <div class="${styles.locationLinks}">
-            ${
-              website
-                ? `
-              <a href="${website}" target="_blank" rel="noopener noreferrer" class="${
-                    styles.actionButton
-                  }">
-                ${t("location.visitWebsite")}
-              </a>
-            `
-                : ""
-            }
-            ${
-              email
-                ? `
-              <a href="mailto:${email}" class="${styles.actionButton}">
-                ${t("location.emailSchool")}
-              </a>
-            `
-                : ""
-            }
-            ${
-              phoneDigits
-                ? `
-              <a href="tel:${phoneDigits}" class="${styles.actionButton}">
-                ${t("location.callNow")}
-              </a>
-            `
-                : ""
-            }
-            <a href="https://maps.google.com/?q=${encodeURIComponent(
-              fullAddress
-            )}" target="_blank" rel="noopener noreferrer" class="${
-        styles.actionButton
-      }">
-              ${t("actions.getDirections")}
+            <a href="${website}" target="_blank" rel="noopener noreferrer" class="${
+                  styles.actionButton
+                }">
+              ${t("location.visitWebsite")}
             </a>
           </div>
+          `
+              : ""
+          }
         </div>
       </div>
     `;
     },
     [t]
   );
+
+  // Clean up all markers properly
+  const clearAllMarkers = useCallback(() => {
+    // Remove all marker event listeners first
+    markersRef.current.forEach((marker) => {
+      const handlers = markerEventHandlersRef.current.get(marker);
+      if (handlers) {
+        handlers.element.removeEventListener("click", handlers.handler);
+        markerEventHandlersRef.current.delete(marker);
+      }
+      marker.remove(); // Proper Mapbox cleanup
+    });
+    markersRef.current = [];
+  }, []);
 
   const closeAllPopups = useCallback(() => {
     if (activePopup) {
@@ -508,64 +532,91 @@ const Component = () => {
 
   const openPopup = useCallback(
     (popup, coordinates, locationId, locationData) => {
+      // Enhanced validation and error handling for mobile stability
       if (!locationData || !coordinates || !mapInstance.current) {
-
+        console.warn('Missing required data for popup:', { locationData: !!locationData, coordinates: !!coordinates, mapInstance: !!mapInstance.current });
         return;
       }
 
-      // First, close all existing popups
-      closeAllPopups();
-
       try {
-        // Create and open new popup
-        const newPopup = new mapboxgl.Popup({
-          closeButton: false, // Use custom close button instead
-          maxWidth: "600px", // Much wider to prevent cut-off
-          closeOnClick: false,
-          // No offset - use default Mapbox positioning for perfect pin alignment
-        });
+        // Close existing popups safely
+        closeAllPopups();
 
-        const content = createLocationPopupContent(locationData);
-        if (!content) {
-
+        // Validate coordinates format
+        if (!Array.isArray(coordinates) || coordinates.length !== 2 ||
+            typeof coordinates[0] !== 'number' || typeof coordinates[1] !== 'number') {
+          console.error('Invalid coordinates format:', coordinates);
           return;
         }
 
+        // Create popup with mobile-friendly settings
+        const newPopup = new mapboxgl.Popup({
+          closeButton: false,
+          maxWidth: isMobile ? "95vw" : "600px",
+          closeOnClick: false,
+          className: isMobile ? 'mobile-popup' : '',
+          anchor: 'bottom'
+        });
+
+        // Generate content safely
+        const content = createLocationPopupContent(locationData);
+        if (!content || typeof content !== 'string') {
+          console.error('Failed to generate popup content');
+          return;
+        }
+
+        // Add popup to map
         newPopup
           .setLngLat(coordinates)
           .setHTML(content)
           .addTo(mapInstance.current);
 
-        // Add drag functionality to popup
-        setTimeout(() => {
-          const popupElement = newPopup.getElement();
-          if (popupElement) {
-            const popupContent = popupElement.querySelector(
-              ".mapboxgl-popup-content"
-            );
-            if (popupContent) {
-              makePopupDraggable(popupContent, newPopup);
+        // Add drag functionality only on desktop (causes issues on mobile)
+        if (!isMobile) {
+          setTimeout(() => {
+            try {
+              const popupElement = newPopup.getElement();
+              if (popupElement) {
+                const popupContent = popupElement.querySelector(".mapboxgl-popup-content");
+                if (popupContent) {
+                  makePopupDraggable(popupContent, newPopup);
+                }
+              }
+            } catch (error) {
+              console.warn('Failed to add popup drag functionality:', error);
             }
-          }
-        }, 100);
+          }, 100);
+        }
 
-        // Set up close handler
+        // Set up close handler with error handling
         newPopup.on("close", () => {
-
-          setActivePopup(null);
-          setActiveCard(null);
-          setShowLocationDetails(false);
+          try {
+            setActivePopup(null);
+            setActiveCard(null);
+            setShowLocationDetails(false);
+          } catch (error) {
+            console.warn('Error in popup close handler:', error);
+          }
         });
 
-        // Update states
+        // Update states safely
         setActivePopup(newPopup);
         setActiveCard(locationId);
         setShowLocationDetails(true);
-      } catch (error) {
 
+      } catch (error) {
+        console.error("Error opening popup:", error);
+        // Clean up any partial state on error
+        try {
+          setActivePopup(null);
+          setActiveCard(null);
+          setShowLocationDetails(false);
+        } catch (cleanupError) {
+          console.error('Error during popup cleanup:', cleanupError);
+        }
       }
     },
-    [mapInstance, createLocationPopupContent, closeAllPopups]
+    [mapInstance, createLocationPopupContent, closeAllPopups, isMobile]
   );
 
   // Update batchGeocodeLocations to use the correct field IDs
@@ -630,47 +681,43 @@ const Component = () => {
       return [...directLocations, ...geocodedLocations];
     }
 
-    // Process remaining locations that need geocoding
+    // Process remaining locations that need geocoding using server-side API
     try {
-      const batchSize = 5;
-      const batches = [];
+      // Prepare addresses for batch geocoding
+      const addresses = uncachedLocations.map((loc) => loc.fields["School Address"].trim());
 
-      for (let i = 0; i < uncachedLocations.length; i += batchSize) {
-        batches.push(uncachedLocations.slice(i, i + batchSize));
+      // Call server-side geocoding API (secure - no exposed keys!)
+      const response = await fetch('/api/geocode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          addresses,
+          type: 'forward'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Geocoding API error: ${response.status}`);
       }
 
-      const results = await Promise.all(
-        batches.map(async (batch) => {
-          const batchPromises = batch.map(async (location) => {
+      const data = await response.json();
+      const results = data.results || [];
+
+      // Process successful geocoding results
+      const geocodedLocations = uncachedLocations
+        .map((location, index) => {
+          const result = results[index];
+          if (result && result.success && result.coordinates) {
             const address = location.fields["School Address"].trim();
-
-            try {
-              const response = await mapboxClient
-                .forwardGeocode({
-                  query: address,
-                  limit: 1,
-                  types: ["address", "place", "poi"],
-                  language: ["en"],
-                  autocomplete: false,
-                  fuzzyMatch: false,
-                })
-                .send();
-
-              if (response.body.features.length) {
-                const coords = response.body.features[0].center;
-                setLocationCache((prev) => new Map(prev).set(address, coords));
-                return { ...location, coordinates: coords };
-              }
-            } catch (error) {
-
-            }
-            return null;
-          });
-
-          const batchResults = await Promise.all(batchPromises);
-          return batchResults.filter(Boolean);
+            // Update cache
+            setLocationCache((prev) => new Map(prev).set(address, result.coordinates));
+            return { ...location, coordinates: result.coordinates };
+          }
+          return null;
         })
-      );
+        .filter(Boolean);
 
       // Add cached locations
       const cachedResults = locationsToGeocode
@@ -683,9 +730,9 @@ const Component = () => {
         }));
 
       // Combine direct coordinates with geocoded results
-      return [...directLocations, ...results.flat(), ...cachedResults];
+      return [...directLocations, ...geocodedLocations, ...cachedResults];
     } catch (error) {
-
+      console.error("Geocoding error:", error);
       return directLocations; // Return at least the direct coordinate locations
     }
   };
@@ -705,38 +752,13 @@ const Component = () => {
     setIsResultsVisible((prev) => !prev);
   };
 
-  // Update the fetchLocations function to improve caching
+  // Fetch locations from server-side API (secure - no exposed keys)
   const fetchLocations = async (forceRefresh = false) => {
-    let allRecords = [];
-    let offset = null;
-
-    // Define the fields we need for the map using field IDs
-    // Only include fields that are defined in environment variables
-    const fields = [];
-
-    if (ADDRESS_FIELD_ID) fields.push(ADDRESS_FIELD_ID);
-    if (SCHOOL_FIELD_ID) fields.push(SCHOOL_FIELD_ID);
-    if (HEAD_INSTRUCTOR_FIELD_ID) fields.push(HEAD_INSTRUCTOR_FIELD_ID);
-    if (PHONE_FIELD_ID) fields.push(PHONE_FIELD_ID);
-    if (EMAIL_FIELD_ID) fields.push(EMAIL_FIELD_ID);
-    if (WEBSITE_FIELD_ID) fields.push(WEBSITE_FIELD_ID);
-    if (IS_PREMIUM_FIELD_ID) fields.push(IS_PREMIUM_FIELD_ID);
-    if (COUNTRY_FIELD_ID) fields.push(COUNTRY_FIELD_ID);
-    if (REGION_FIELD_ID) fields.push(REGION_FIELD_ID);
-    if (LATITUDE_FIELD_ID) fields.push(LATITUDE_FIELD_ID);
-    if (LONGITUDE_FIELD_ID) fields.push(LONGITUDE_FIELD_ID);
-
-    const fieldsParam = fields
-      .map((field) => `fields[]=${encodeURIComponent(field)}`)
-      .join("&");
-
     try {
-      // Debug environment variables
-
-      // First try to get from cache
-      const cacheKey = `${AIRTABLE_BASE_ID}-${AIRTABLE_TABLE_ID}-${AIRTABLE_VIEW_ID}`;
-      const cachedData = localStorage.getItem(cacheKey);
-      const cacheTimestamp = localStorage.getItem(`${cacheKey}-timestamp`);
+      // First try to get from cache using safe storage
+      const cacheKey = "locations-cache";
+      const cachedData = safeStorage.getItem(cacheKey);
+      const cacheTimestamp = safeStorage.getItem(`${cacheKey}-timestamp`);
 
       // Check if cache is valid (less than 5 minutes old) and not forcing refresh
       if (
@@ -745,54 +767,33 @@ const Component = () => {
         cacheTimestamp &&
         Date.now() - parseInt(cacheTimestamp) < 300000
       ) {
-
-        return JSON.parse(cachedData);
+        try {
+          return JSON.parse(cachedData);
+        } catch (parseError) {
+          console.warn('Failed to parse cached data, fetching fresh data');
+          // Continue to fetch fresh data if parse fails
+        }
       }
 
       // Clear old cache if forcing refresh
       if (forceRefresh) {
-        localStorage.removeItem(cacheKey);
-        localStorage.removeItem(`${cacheKey}-timestamp`);
-
+        safeStorage.removeItem(cacheKey);
+        safeStorage.removeItem(`${cacheKey}-timestamp`);
       }
 
-      do {
-        let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}?view=${AIRTABLE_VIEW_ID}&returnFieldsByFieldId=true&${fieldsParam}`;
+      // Fetch from server-side API route (no exposed keys!)
+      const response = await fetch(`/api/locations?forceRefresh=${forceRefresh}`);
 
-        if (offset) {
-          url += `&offset=${offset}`;
-        }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
 
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-        });
+      const data = await response.json();
+      const allRecords = data.records || [];
 
-        if (!response.ok) {
-
-          throw new Error(
-            `Airtable API error: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data = await response.json();
-        // Debug logs removed - data fetching working correctly
-
-        const validRecords = data.records.filter(
-          (record) =>
-            record.fields[LONGITUDE_FIELD_ID] &&
-            record.fields[LATITUDE_FIELD_ID]
-        );
-
-        allRecords = [...allRecords, ...validRecords];
-        offset = data.offset;
-      } while (offset);
-
-      // Cache the results with a shorter expiration
-      localStorage.setItem(cacheKey, JSON.stringify(allRecords));
-      localStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString());
+      // Cache the results using safe storage
+      safeStorage.setItem(cacheKey, JSON.stringify(allRecords));
+      safeStorage.setItem(`${cacheKey}-timestamp`, Date.now().toString());
 
       // Store all locations in state for filtering
       setAllLocations(allRecords);
@@ -830,7 +831,7 @@ const Component = () => {
 
       return allRecords;
     } catch (error) {
-
+      console.error("Error fetching locations:", error);
       setLocationError("Unable to fetch locations. Please try again later.");
       return [];
     }
@@ -855,26 +856,36 @@ const Component = () => {
     setInstructorData(null);
   };
 
-  // Convert coordinates to an address using Mapbox reverse geocoding
+  // Convert coordinates to an address using server-side geocoding API
   const reverseGeocode = async (coords) => {
     try {
       if (!coords || !Array.isArray(coords) || coords.length !== 2) {
         throw new Error("Invalid coordinates provided");
       }
 
-      const response = await mapboxClient
-        .reverseGeocode({
-          query: coords,
-          limit: 1,
-        })
-        .send();
+      // Call server-side geocoding API (secure - no exposed keys!)
+      const response = await fetch('/api/geocode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          addresses: [coords],
+          type: 'reverse'
+        }),
+      });
 
-      if (response.body.features.length) {
-        return response.body.features[0].place_name;
+      if (!response.ok) {
+        throw new Error(`Reverse geocoding API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.results && data.results[0] && data.results[0].success) {
+        return data.results[0].address;
       }
       return `${coords[1]}, ${coords[0]}`; // Fallback to coords if no address is found
     } catch (error) {
-
+      console.error("Reverse geocoding error:", error);
       return `${coords[1]}, ${coords[0]}`; // Fallback in case of error
     }
   };
@@ -901,12 +912,10 @@ const Component = () => {
   const addUserMarker = useCallback(
     (coordinates) => {
       if (!mapInstance.current) {
-
         return;
       }
 
       try {
-
         // Validate coordinates
         if (
           !coordinates ||
@@ -915,7 +924,6 @@ const Component = () => {
           !isFinite(coordinates[0]) ||
           !isFinite(coordinates[1])
         ) {
-
           return;
         }
 
@@ -951,10 +959,7 @@ const Component = () => {
         // Store the marker reference
         userMarkerRef.current = newUserMarker;
         setUserLocation([lng, lat]);
-
-      } catch (error) {
-
-      }
+      } catch (error) {}
     },
     [removeUserMarker]
   );
@@ -1131,9 +1136,13 @@ const Component = () => {
     async (locations = allLocations) => {
       if (!mapInstance.current || !locations.length) return;
 
-      // Clear existing markers
-      const existingMarkers = document.querySelectorAll(".mapboxgl-marker");
-      existingMarkers.forEach((marker) => marker.remove());
+      console.log('[filterAndDisplayLocations] Starting processing of', locations.length, 'locations');
+      // Set loading state to prevent premature clicks
+      setLoading(true);
+      setIsInitialLoading(true);
+
+      // Clear existing markers properly
+      clearAllMarkers();
 
       // Filter locations based on current filters
       let filteredLocations = locations;
@@ -1172,103 +1181,211 @@ const Component = () => {
         return;
       }
 
-      // Add markers to map
+      // Add uniqueId to each location for React list keys
+      const locationsWithIds = geocodedLocations.map((location, index) => ({
+        ...location,
+        uniqueId: `${location.id || ""}-${index}-${
+          location.fields[ADDRESS_FIELD_ID] || ""
+        }`.replace(/[^a-zA-Z0-9]/g, "-")
+      }));
+
+      // Add markers to map in batches to prevent mobile crashes
       const bounds = new mapboxgl.LngLatBounds();
-      geocodedLocations.forEach((location, index) => {
+
+      // Calculate bounds first (synchronous and fast)
+      locationsWithIds.forEach((location) => {
         if (location.coordinates && location.coordinates.length === 2) {
-          const isPremium = location.fields[IS_PREMIUM_FIELD_ID];
-          const marker = new mapboxgl.Marker({
-            color: isPremium ? "#FFD700" : "#FF0000",
-            scale: isPremium ? 1.2 : 1,
-          })
-            .setLngLat(location.coordinates)
-            .addTo(mapInstance.current);
-
           bounds.extend(location.coordinates);
-
-          const uniqueId = `${location.id || ""}-${index}-${
-            location.fields[ADDRESS_FIELD_ID] || ""
-          }`.replace(/[^a-zA-Z0-9]/g, "-");
-
-          marker.getElement().addEventListener("click", (e) => {
-            e.stopPropagation();
-
-            // Close any existing popups first
-            closeAllPopups();
-
-            // Create and open popup
-            const popup = new mapboxgl.Popup({
-              closeButton: false, // Use custom close button instead
-              maxWidth: "600px", // Much wider to prevent cut-off
-              closeOnClick: false,
-              // No offset - use default Mapbox positioning for perfect pin alignment
-            });
-
-            const content = createLocationPopupContent(location);
-            if (content) {
-              popup
-                .setLngLat(location.coordinates)
-                .setHTML(content)
-                .addTo(mapInstance.current);
-
-              // Add drag functionality to popup
-              setTimeout(() => {
-                const popupElement = popup.getElement();
-                if (popupElement) {
-                  const popupContent = popupElement.querySelector(
-                    ".mapboxgl-popup-content"
-                  );
-                  if (popupContent) {
-                    makePopupDraggable(popupContent, popup);
-                  }
-                }
-              }, 100);
-
-              // Set up close handler and store popup reference
-              popup.on("close", () => {
-                setActivePopup(null);
-                setActiveCard(null);
-                setShowLocationDetails(false);
-              });
-
-              // Update states
-              setActivePopup(popup);
-              setActiveCard(uniqueId);
-              setShowLocationDetails(true);
-            }
-          });
-
-          marker.getElement().setAttribute("data-location-id", uniqueId);
         }
       });
 
-      // Fit map to show all markers
-      if (geocodedLocations.length > 0) {
+      // Fit map to show all markers immediately
+      if (locationsWithIds.length > 0) {
         mapInstance.current.fitBounds(bounds, { padding: 50 });
       }
 
-      setSearchResults(geocodedLocations);
+      // Create markers in batches to prevent overwhelming the browser
+      // Use smaller batches on mobile to prevent crashes
+      const BATCH_SIZE = isMobile ? 25 : 100; // Create fewer markers at a time on mobile
+      let currentBatch = 0;
+
+      const createMarkerBatch = () => {
+        const start = currentBatch * BATCH_SIZE;
+        const end = Math.min(start + BATCH_SIZE, locationsWithIds.length);
+
+        console.log(`[createMarkerBatch] Creating markers ${start} to ${end} of ${locationsWithIds.length}`);
+
+        for (let i = start; i < end; i++) {
+          const location = locationsWithIds[i];
+
+          if (location.coordinates && location.coordinates.length === 2) {
+            const isPremium = location.fields[IS_PREMIUM_FIELD_ID];
+            const marker = new mapboxgl.Marker({
+              color: isPremium ? "#FFD700" : "#FF0000",
+              scale: isPremium ? 1.2 : 1,
+            })
+              .setLngLat(location.coordinates)
+              .addTo(mapInstance.current);
+
+            const uniqueId = location.uniqueId;
+
+            // Store marker for proper cleanup
+            markersRef.current.push(marker);
+
+            // Create click handler with enhanced error handling for mobile stability
+            const handleMarkerClick = (e) => {
+              // Prevent event propagation and default behavior
+              if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+              }
+
+              console.log('[Marker Click] Clicked marker for:', uniqueId);
+
+              try {
+                // Prevent clicks while locations are still being processed
+                if (loading || isInitialLoading) {
+                  console.log('[Marker Click] Blocked click - still loading');
+                  return;
+                }
+
+                // Close any existing popups first
+                closeAllPopups();
+
+                // Validate location data
+                if (!location || !location.coordinates || !Array.isArray(location.coordinates)) {
+                  console.error('[Marker Click] Invalid location data:', location);
+                  return;
+                }
+
+                // Create and open popup with mobile-friendly settings
+                const popup = new mapboxgl.Popup({
+                  closeButton: false,
+                  maxWidth: isMobile ? "95vw" : "600px",
+                  closeOnClick: false,
+                  className: isMobile ? 'mobile-popup' : '',
+                  anchor: 'bottom'
+                });
+
+                const content = createLocationPopupContent(location);
+                if (!content) {
+                  console.error('[Marker Click] Failed to generate popup content');
+                  return;
+                }
+
+                popup
+                  .setLngLat(location.coordinates)
+                  .setHTML(content)
+                  .addTo(mapInstance.current);
+
+                // Add drag functionality only on desktop
+                if (!isMobile) {
+                  setTimeout(() => {
+                    try {
+                      const popupElement = popup.getElement();
+                      if (popupElement) {
+                        const popupContent = popupElement.querySelector(".mapboxgl-popup-content");
+                        if (popupContent) {
+                          makePopupDraggable(popupContent, popup);
+                        }
+                      }
+                    } catch (error) {
+                      console.warn('[Marker Click] Failed to add drag functionality:', error);
+                    }
+                  }, 100);
+                }
+
+                // Set up close handler with error handling
+                popup.on("close", () => {
+                  try {
+                    setActivePopup(null);
+                    setActiveCard(null);
+                    setShowLocationDetails(false);
+                  } catch (error) {
+                    console.warn('[Marker Click] Error in popup close handler:', error);
+                  }
+                });
+
+                // Update states safely
+                setActivePopup(popup);
+                setActiveCard(uniqueId);
+                setShowLocationDetails(true);
+
+              } catch (error) {
+                console.error('[Marker Click] Error handling marker click:', error);
+                // Clean up any partial state on error
+                try {
+                  setActivePopup(null);
+                  setActiveCard(null);
+                  setShowLocationDetails(false);
+                } catch (cleanupError) {
+                  console.error('[Marker Click] Error during cleanup:', cleanupError);
+                }
+              }
+            };
+
+            // Add event listener and track for cleanup
+            const element = marker.getElement();
+            element.addEventListener("click", handleMarkerClick);
+            markerEventHandlersRef.current.set(marker, {
+              element,
+              handler: handleMarkerClick
+            });
+
+            element.setAttribute("data-location-id", uniqueId);
+          }
+        }
+
+        currentBatch++;
+
+        // Continue creating markers in next batch if there are more
+        if (currentBatch * BATCH_SIZE < locationsWithIds.length) {
+          requestAnimationFrame(createMarkerBatch);
+        } else {
+          console.log(`[createMarkerBatch] Finished creating all ${markersRef.current.length} markers`);
+        }
+      };
+
+      // Start creating markers in batches
+      createMarkerBatch();
+
+      setSearchResults(locationsWithIds);
       setSearchStatus(
-        `Found ${geocodedLocations.length} ${
-          geocodedLocations.length === 1 ? "location" : "locations"
+        `Found ${locationsWithIds.length} ${
+          locationsWithIds.length === 1 ? "location" : "locations"
         }`
       );
+
+      // Clear loading state after a delay to ensure markers are created
+      // The markers are created asynchronously via requestAnimationFrame
+      setTimeout(() => {
+        console.log('[filterAndDisplayLocations] Processing complete, enabling clicks');
+        setLoading(false);
+        setIsInitialLoading(false);
+      }, 500);
     },
-    [allLocations, premiumFilter, countryFilter, regionFilter, mapInstance]
+    [allLocations, premiumFilter, countryFilter, regionFilter, mapInstance, clearAllMarkers, closeAllPopups, createLocationPopupContent, t]
   );
 
   // Effect to filter locations when filters change
+  // This handles both initial load and filter changes
   useEffect(() => {
     if (allLocations.length > 0 && mapInitialized) {
-      filterAndDisplayLocations();
+      console.log('[filterAndDisplayLocations useEffect] Triggered with', allLocations.length, 'locations');
+      // Use setTimeout to defer marker creation slightly
+      const timer = setTimeout(() => {
+        filterAndDisplayLocations();
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     premiumFilter,
     countryFilter,
     regionFilter,
     allLocations,
     mapInitialized,
-    filterAndDisplayLocations,
   ]);
 
   // Update the runSearch function
@@ -1346,70 +1463,48 @@ const Component = () => {
             searchCoords = directMatch.coordinates;
             centerLocation = directMatch;
           } else {
-            // If no direct match, use Mapbox geocoding
-            const response = await mapboxClient
-              .forwardGeocode({
-                query: trimmedAddress,
-                limit: 1,
-                types: ["place", "address", "poi", "region", "country"],
-                language: ["en"],
-                countries: [
-                  "US",
-                  "CA",
-                  "MX",
-                  "BR",
-                  "CO",
-                  "AR",
-                  "CL",
-                  "PE",
-                  "EC",
-                  "VE",
-                  "UY",
-                  "PY",
-                  "BO",
-                  "CR",
-                  "PA",
-                  "DO",
-                  "PR",
-                  "GT",
-                  "SV",
-                  "HN",
-                  "NI",
-                ],
-                autocomplete: true,
-                fuzzyMatch: true,
-              })
-              .send();
+            // If no direct match, use server-side geocoding API
+            const response = await fetch('/api/geocode', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                addresses: [trimmedAddress],
+                type: 'forward'
+              }),
+            });
 
-            if (response.body.features.length) {
-              searchCoords = response.body.features[0].center;
+            if (response.ok) {
+              const data = await response.json();
+              if (data.results && data.results[0] && data.results[0].success) {
+                searchCoords = data.results[0].coordinates;
 
-              // Find the closest location to these coordinates
-              let closestLocation = null;
-              let minDistance = Infinity;
+                // Find the closest location to these coordinates
+                let closestLocation = null;
+                let minDistance = Infinity;
 
-              for (const location of geocodedLocations) {
-                if (location.coordinates) {
-                  const distance = haversineDistance(
-                    searchCoords,
-                    location.coordinates
-                  );
-                  if (distance < minDistance) {
-                    minDistance = distance;
-                    closestLocation = location;
+                for (const location of geocodedLocations) {
+                  if (location.coordinates) {
+                    const distance = haversineDistance(
+                      searchCoords,
+                      location.coordinates
+                    );
+                    if (distance < minDistance) {
+                      minDistance = distance;
+                      closestLocation = location;
+                    }
                   }
                 }
-              }
 
-              if (closestLocation) {
-                searchCoords = closestLocation.coordinates;
-                centerLocation = closestLocation;
+                if (closestLocation) {
+                  searchCoords = closestLocation.coordinates;
+                  centerLocation = closestLocation;
+                }
               }
             }
           }
-        } catch (error) {
-
-        }
+        } catch (error) {}
       } else if (Array.isArray(addressOrCoords)) {
         searchCoords = addressOrCoords;
       }
@@ -1455,7 +1550,11 @@ const Component = () => {
             "-"
           );
 
-          marker.getElement().addEventListener("click", (e) => {
+          // Store marker for proper cleanup
+          markersRef.current.push(marker);
+
+          // Create handler for proper cleanup tracking
+          const handleClick = (e) => {
             e.stopPropagation();
             handleLocationSelect({
               ...location,
@@ -1464,6 +1563,14 @@ const Component = () => {
               index,
               uniqueId,
             });
+          };
+
+          // Add event listener and track for cleanup
+          const markerElement = marker.getElement();
+          markerElement.addEventListener("click", handleClick);
+          markerEventHandlersRef.current.set(marker, {
+            element: markerElement,
+            handler: handleClick
           });
 
           return {
@@ -1511,7 +1618,6 @@ const Component = () => {
         setIsSearchCollapsed(true);
       }
     } catch (error) {
-
       setLocationError(
         "An error occurred during the search. Please try again."
       );
@@ -1527,67 +1633,137 @@ const Component = () => {
   // Update handleLocationSelect to include proper error handling
   const handleLocationSelect = useCallback(
     (location) => {
-      if (!location || !location.coordinates) {
-
-        return;
-      }
-
-      // Prevent event bubbling
-      event?.stopPropagation();
-
-      // Close any existing popups first
-      closeAllPopups();
-
-      setSelectedLocation(location);
-      setActiveCard(location.uniqueId);
-
-      // Smooth map transition to the exact location
-      if (mapInstance.current) {
-        mapInstance.current.flyTo({
-          center: location.coordinates,
-          zoom: 14,
-          duration: 1000,
-          essential: true,
+      try {
+        console.log('[handleLocationSelect] Called with location:', {
+          hasLocation: !!location,
+          hasCoordinates: !!(location && location.coordinates),
+          uniqueId: location?.uniqueId,
+          fields: location?.fields ? Object.keys(location.fields) : 'no fields'
         });
 
-        // Open popup with the location data after a short delay to ensure smooth animation
-        setTimeout(() => {
-          openPopup(null, location.coordinates, location.uniqueId, location);
-        }, 300);
+        if (!location || !location.coordinates) {
+          console.error('[handleLocationSelect] Missing location or coordinates');
+          return;
+        }
+
+        // Close any existing popups first
+        closeAllPopups();
+
+        setSelectedLocation(location);
+        setActiveCard(location.uniqueId);
+
+        // Smooth map transition to the exact location
+        if (mapInstance.current) {
+          console.log('[handleLocationSelect] Flying to coordinates:', location.coordinates);
+          mapInstance.current.flyTo({
+            center: location.coordinates,
+            zoom: 14,
+            duration: 1000,
+            essential: true,
+          });
+
+          // Open popup with the location data after a short delay to ensure smooth animation
+          setTimeout(() => {
+            console.log('[handleLocationSelect] Opening popup for:', location.uniqueId);
+            try {
+              openPopup(null, location.coordinates, location.uniqueId, location);
+            } catch (popupError) {
+              console.error('[handleLocationSelect] Error opening popup:', popupError);
+            }
+          }, 300);
+        } else {
+          console.error('[handleLocationSelect] No mapInstance.current');
+        }
+
+        // On mobile/iframe, close the sidebar to show the map
+        if ((isMobile || isInIframe) && !isSidebarCollapsed) {
+          setIsSidebarCollapsed(true);
+          // Mark as user interaction to prevent auto-show
+          safeStorage.setItem("gb-map-user-interacted", "true");
+        }
+      } catch (error) {
+        console.error("Error in handleLocationSelect:", error, error.stack);
+        // Prevent crash on mobile
       }
     },
-    [mapInstance, openPopup, closeAllPopups]
+    [
+      mapInstance,
+      openPopup,
+      closeAllPopups,
+      isMobile,
+      isInIframe,
+      isSidebarCollapsed,
+    ]
   );
 
   // Update the result item click handler
   const handleResultItemClick = useCallback(
-    (location) => {
-      handleLocationSelect(location);
+    (location, event) => {
+      try {
+        // Prevent clicks while locations are still being processed
+        if (loading || isInitialLoading) {
+          console.log('[handleResultItemClick] Blocked click - still loading');
+          if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          return;
+        }
 
-      // On mobile, collapse the results panel
-      if (window.innerWidth <= 768) {
-        setIsResultsVisible(false);
+        // Prevent default behavior and event propagation
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+
+        handleLocationSelect(location);
+
+        // On mobile/iframe, close the sidebar to show the map
+        if ((isMobile || isInIframe) && !isSidebarCollapsed) {
+          setIsSidebarCollapsed(true);
+          // Mark as user interaction to prevent auto-show
+          safeStorage.setItem("gb-map-user-interacted", "true");
+        }
+      } catch (error) {
+        console.error("Error in handleResultItemClick:", error);
+        // Prevent crash on mobile
       }
     },
-    [handleLocationSelect]
+    [handleLocationSelect, isMobile, isInIframe, isSidebarCollapsed, loading, isInitialLoading]
   );
 
   // Initialize map
   useEffect(() => {
-
     if (!mapContainer.current) {
-
       return;
     }
 
     if (mapInstance.current) {
-
       return;
     }
 
-    if (!MAPBOX_TOKEN) {
+    if (!MAPBOX_DISPLAY_TOKEN) {
       setMapError("Mapbox token is missing");
       return;
+    }
+
+    // Ensure container has dimensions before initializing map
+    const containerWidth = mapContainer.current.offsetWidth;
+    const containerHeight = mapContainer.current.offsetHeight;
+
+    if (!containerWidth || !containerHeight) {
+      console.warn("Map container has no dimensions, delaying initialization");
+      // Retry after a short delay
+      const retryTimeout = setTimeout(() => {
+        if (mapContainer.current && !mapInstance.current) {
+          const w = mapContainer.current.offsetWidth;
+          const h = mapContainer.current.offsetHeight;
+          if (w && h) {
+            window.location.reload(); // Force reload to reinitialize
+          }
+        }
+      }, 100);
+      return () => clearTimeout(retryTimeout);
     }
 
     try {
@@ -1597,38 +1773,58 @@ const Component = () => {
         center: DEFAULT_CENTER,
         zoom: 2,
         minZoom: 1,
+        // Add these options to improve stability
+        preserveDrawingBuffer: true,
+        trackResize: true,
       });
 
       map.on("load", async () => {
-
         setMapInitialized(true);
         setIsMapLoading(false);
 
         // Automatically fetch all locations on map load
         try {
-
           setIsInitialLoading(true);
           setSearchStatus(t("status.loadingLocations"));
-          await fetchLocations(true); // Force refresh to get all data
-          setSearchStatus(t("status.ready"));
+
+          // Check cache age - if older than 5 minutes or empty, force refresh
+          const cacheKey = `${AIRTABLE_BASE_ID}-${AIRTABLE_TABLE_ID}-${AIRTABLE_VIEW_ID}`;
+          const cacheTimestamp = safeStorage.getItem(`${cacheKey}-timestamp`);
+          const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+          const shouldForceRefresh = !cacheTimestamp || cacheAge > 300000; // 5 minutes
+
+          await fetchLocations(shouldForceRefresh);
+
+          // The useEffect will handle calling filterAndDisplayLocations
+          // when allLocations and mapInitialized are both ready
           setIsInitialLoading(false);
-
         } catch (error) {
-
+          console.error('Error loading locations:', error);
           setSearchStatus(t("status.error"));
           setIsInitialLoading(false);
         }
       });
 
       map.on("error", (e) => {
+        console.error("Mapbox GL error:", e);
+        // Only show critical errors to user
+        if (e.error?.message && !e.error.message.includes("matrix")) {
+          setMapError(e.error.message);
+        }
+      });
 
-        setMapError(e.error?.message || "An error occurred loading the map");
+      // Add additional error event listener for render errors
+      map.on("render", () => {
+        // Map rendered successfully, clear any previous errors
+        if (mapError && mapError.includes("matrix")) {
+          setMapError(null);
+        }
       });
 
       mapInstance.current = map;
       setMap(map);
     } catch (error) {
-
+      console.error("Map initialization error:", error);
       setMapError(error.message);
       setIsMapLoading(false);
     }
@@ -1692,6 +1888,13 @@ const Component = () => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       handleLocationSelect(location);
+
+      // On mobile/iframe, close the sidebar to show the map
+      if ((isMobile || isInIframe) && !isSidebarCollapsed) {
+        setIsSidebarCollapsed(true);
+        // Mark as user interaction to prevent auto-show
+        safeStorage.setItem("gb-map-user-interacted", "true");
+      }
     }
   };
 
@@ -1710,48 +1913,32 @@ const Component = () => {
       setSearchStatus(t("status.foundResults", { count: resultCount }));
     } catch (error) {
       setSearchStatus(t("status.error"));
-
     }
   };
 
-  const handleFilterChange = async (filterType, value) => {
-    if (filterType === "premium") {
-      setPremiumFilter(value);
-    } else if (filterType === "country") {
-      setCountryFilter(value);
-    }
+  // Debounced filter processing to avoid rapid re-renders
+  const processFilteredLocations = useCallback(
+    debounce(async (premiumVal, countryVal, regionVal) => {
+      if (searchResults.length === 0) return;
 
-    // Trigger a re-filter of current results
-    if (searchResults.length > 0) {
       setIsSearching(true);
       setLoading(true);
       setSearchStatus("Filtering locations...");
 
       try {
-        // Apply the same filtering logic as showAllLocations
+        // Apply filtering logic
         const filteredLocations = allLocations.filter((loc) => {
-          const currentPremiumFilter =
-            filterType === "premium" ? value : premiumFilter;
-          const currentCountryFilter =
-            filterType === "country" ? value : countryFilter;
-
-          if (
-            currentPremiumFilter === "premium" &&
-            !loc.fields[IS_PREMIUM_FIELD_ID]
-          ) {
+          if (premiumVal === "premium" && !loc.fields[IS_PREMIUM_FIELD_ID]) {
             return false;
           }
-          if (
-            currentCountryFilter !== "all" &&
-            loc.fields[COUNTRY_FIELD_ID] !== currentCountryFilter
-          ) {
+          if (countryVal !== "all" && loc.fields[COUNTRY_FIELD_ID] !== countryVal) {
             return false;
           }
-          if (regionFilter !== "all") {
+          if (regionVal !== "all") {
             const region = loc.fields[REGION_FIELD_ID];
             if (Array.isArray(region)) {
-              if (!region.includes(regionFilter)) return false;
-            } else if (region !== regionFilter) {
+              if (!region.includes(regionVal)) return false;
+            } else if (region !== regionVal) {
               return false;
             }
           }
@@ -1782,22 +1969,32 @@ const Component = () => {
         });
 
         setSearchResults(processedLocations);
-        setSearchStatus(
-          t("status.foundResults", { count: sortedLocations.length })
-        );
+        setSearchStatus(t("status.foundResults", { count: sortedLocations.length }));
       } catch (error) {
-
         setSearchStatus(t("status.error"));
       } finally {
         setLoading(false);
         setIsSearching(false);
       }
+    }, 300), // 300ms debounce delay
+    [allLocations, searchResults.length, t, IS_PREMIUM_FIELD_ID, COUNTRY_FIELD_ID, REGION_FIELD_ID, ADDRESS_FIELD_ID, LONGITUDE_FIELD_ID, LATITUDE_FIELD_ID]
+  );
+
+  const handleFilterChange = (filterType, value) => {
+    // Update state immediately for UI responsiveness
+    if (filterType === "premium") {
+      setPremiumFilter(value);
+      // Trigger debounced filtering with new value
+      processFilteredLocations(value, countryFilter, regionFilter);
+    } else if (filterType === "country") {
+      setCountryFilter(value);
+      // Trigger debounced filtering with new value
+      processFilteredLocations(premiumFilter, value, regionFilter);
     }
   };
 
   const showAllLocations = async () => {
     if (!mapInstance.current || !mapInitialized) {
-
       setSearchStatus("Please wait for the map to initialize...");
       return;
     }
@@ -1861,7 +2058,6 @@ const Component = () => {
         t("status.foundResults", { count: sortedLocations.length })
       );
     } catch (error) {
-
       setSearchStatus(t("status.error"));
     } finally {
       setLoading(false);
@@ -1886,65 +2082,232 @@ const Component = () => {
   // Mobile detection and responsive handling
   useEffect(() => {
     const checkMobile = () => {
-      const isMobileDevice = window.innerWidth <= 768 || 
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      // Check if we're in an iframe
+      const inIframe = window.self !== window.top;
+      setIsInIframe(inIframe);
+
+      // Get the actual viewport size (considering iframe context)
+      let viewportWidth = window.innerWidth;
+      let viewportHeight = window.innerHeight;
+
+      // If in iframe, try to get parent window dimensions
+      if (inIframe) {
+        try {
+          // Try to access parent window dimensions
+          if (window.parent && window.parent !== window) {
+            viewportWidth = window.parent.innerWidth || window.innerWidth;
+            viewportHeight = window.parent.innerHeight || window.innerHeight;
+          }
+        } catch (e) {
+          // Cross-origin iframe, use current window dimensions
+          viewportWidth = window.innerWidth;
+          viewportHeight = window.innerHeight;
+        }
+      }
+
+      // Enhanced mobile detection
+      const isMobileDevice =
+        viewportWidth <= 768 ||
+        viewportHeight <= 600 || // Consider height for landscape mobile
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        ) ||
+        "ontouchstart" in window || // Touch capability
+        navigator.maxTouchPoints > 0; // Touch points
+
       setIsMobile(isMobileDevice);
+
+      // Force mobile layout for very small iframes
+      if (viewportWidth <= 480 || viewportHeight <= 400) {
+        setIsMobile(true);
+      }
+
+      // Additional check: if iframe is very small, force mobile
+      if (inIframe && (window.innerWidth <= 400 || window.innerHeight <= 300)) {
+        setIsMobile(true);
+      }
+
+      // Detect Chrome emulator
+      const isChromeEmulator =
+        /Chrome/.test(navigator.userAgent) &&
+        (window.innerWidth <= 768 || window.innerHeight <= 600) &&
+        !("ontouchstart" in window);
+      setIsChromeEmulator(isChromeEmulator);
     };
 
+    // Initial check
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
+
+    // Listen for resize events on both current window and parent
+    window.addEventListener("resize", checkMobile);
+
+    // If in iframe, also listen to parent window resize
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.addEventListener("resize", checkMobile);
+      } catch (e) {
+        // Cross-origin, can't access parent
+      }
+    }
+
+    // Fallback: check again after a short delay to catch any missed updates
+    const fallbackCheck = setTimeout(checkMobile, 100);
+
     return () => {
-      window.removeEventListener('resize', checkMobile);
+      clearTimeout(fallbackCheck);
+      window.removeEventListener("resize", checkMobile);
+      if (window.parent && window.parent !== window) {
+        try {
+          window.parent.removeEventListener("resize", checkMobile);
+        } catch (e) {
+          // Cross-origin, can't access parent
+        }
+      }
     };
   }, []);
 
-  // Touch handling for mobile sidebar
-  const handleTouchStart = (e) => {
-    if (!isMobile) return;
-    setTouchStartY(e.touches[0].clientY);
-    setTouchStartX(e.touches[0].clientX);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isMobile) return;
-    const touchY = e.touches[0].clientY;
-    const touchX = e.touches[0].clientX;
-    const deltaY = touchY - touchStartY;
-    const deltaX = touchX - touchStartX;
-
-    // Only handle vertical swipes
-    if (Math.abs(deltaY) > Math.abs(deltaX)) {
-      // Swipe down to collapse sidebar
-      if (deltaY > 50 && !isSidebarCollapsed) {
-        setIsSidebarCollapsed(true);
-      }
-      // Swipe up to expand sidebar
-      else if (deltaY < -50 && isSidebarCollapsed) {
-        setIsSidebarCollapsed(false);
-      }
+  // Simplified touch handling for mobile sidebar - prevent crashes
+  const handleTouchStart = useCallback((e) => {
+    if (!isMobile && !isInIframe) return;
+    try {
+      setTouchStartY(e.touches[0]?.clientY || 0);
+      setTouchStartX(e.touches[0]?.clientX || 0);
+      setIsDragging(false);
+    } catch (error) {
+      console.warn('Touch start error:', error);
     }
-  };
+  }, [isMobile, isInIframe]);
+
+  const handleTouchMove = useCallback((e) => {
+    if (!isMobile && !isInIframe || !e.touches?.[0]) return;
+
+    try {
+      const touchY = e.touches[0].clientY;
+      const touchX = e.touches[0].clientX;
+      const deltaY = touchY - touchStartY;
+      const deltaX = Math.abs(touchX - touchStartX);
+
+      // Only handle vertical swipes with significant movement
+      if (deltaX > 30 || Math.abs(deltaY) < 20) return;
+
+      setIsDragging(true);
+
+      // Simple swipe gestures - avoid complex logic that can crash
+      if (deltaY > 80 && !isSidebarCollapsed) {
+        setIsSidebarCollapsed(true);
+        setIsDragging(false);
+        safeStorage.setItem("gb-map-user-interacted", "true");
+      } else if (deltaY < -80 && isSidebarCollapsed) {
+        setIsSidebarCollapsed(false);
+        setIsDragging(false);
+      }
+    } catch (error) {
+      console.warn('Touch move error:', error);
+      setIsDragging(false);
+    }
+  }, [isMobile, isInIframe, touchStartY, touchStartX, isSidebarCollapsed]);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (!isMobile && !isInIframe) return;
+    try {
+      setIsDragging(false);
+    } catch (error) {
+      console.warn('Touch end error:', error);
+    }
+  }, [isMobile, isInIframe]);
 
   // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
-    if (isMobile && !isSidebarCollapsed) {
-      document.body.style.overflow = 'hidden';
+    if ((isMobile || isInIframe) && !isSidebarCollapsed) {
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
 
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
-  }, [isMobile, isSidebarCollapsed]);
+  }, [isMobile, isInIframe, isSidebarCollapsed]);
+
+  // Auto-show sidebar on mobile/iframe when map loads (only once)
+  useEffect(() => {
+    if ((isMobile || isInIframe) && mapInitialized && isSidebarCollapsed) {
+      // Only auto-show if this is the first time the map loads
+      // Don't auto-show if user has manually closed it
+      // Be more conservative in Chrome emulator
+      const hasUserInteracted = safeStorage.getItem("gb-map-user-interacted");
+      const isFirstLoad = !hasUserInteracted;
+
+      if (isFirstLoad && !isChromeEmulator) {
+        setTimeout(() => {
+          setIsSidebarCollapsed(false);
+        }, 300);
+      }
+    }
+  }, [isMobile, isInIframe, mapInitialized, isChromeEmulator]);
+
+  // Track user interaction to prevent auto-show after manual close
+  useEffect(() => {
+    if (isSidebarCollapsed) {
+      localStorage.setItem("gb-map-user-interacted", "true");
+    }
+  }, [isSidebarCollapsed]);
+
+  // Toggle sidebar function
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+    // Mark as user interaction to prevent auto-show
+    localStorage.setItem("gb-map-user-interacted", "true");
+  };
 
   return (
-    <div 
-      className={`${styles.luxuryContainer} ${isMobile ? styles.mobileContainer : ''}`}
+    <div
+      className={`${styles.luxuryContainer} ${
+        isMobile || isInIframe ? styles.mobileContainer : ""
+      } ${isInIframe ? styles.iframeMobile : ""}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
+      {/* Floating Toggle Button for Mobile */}
+      {(isMobile || isInIframe) && (
+        <button
+          className={`${styles.floatingToggle} ${
+            isSidebarCollapsed ? styles.floatingToggleCollapsed : ""
+          }`}
+          onClick={toggleSidebar}
+          aria-label={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+        >
+          {isSidebarCollapsed ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M3 12h18M3 6h18M3 18h18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M18 6L6 18M6 6l12 12"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </button>
+      )}
+
+      {/* Chrome Emulator Debug Info */}
+      {isChromeEmulator && (
+        <div className={styles.debugInfo}>
+          <p>Chrome Emulator Mode - Sidebar won't auto-show</p>
+        </div>
+      )}
       {/* Loading Overlay */}
       {(isSearching || loading || isInitialLoading) && (
         <div className={styles.loadingOverlay}>
@@ -1955,6 +2318,7 @@ const Component = () => {
               width={80}
               height={80}
               className={styles.loadingLogo}
+              priority
             />
             <p className={styles.loadingText}>
               {isSearching ? t("status.searching") : t("status.loading")}
@@ -1968,10 +2332,15 @@ const Component = () => {
       </a>
 
       {/* Luxury Sidebar */}
-      <div 
-        className={`${styles.luxurySidebar} ${isMobile ? styles.mobileSidebar : ''} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}
+      <div
+        className={`${styles.luxurySidebar} ${
+          isMobile || isInIframe ? styles.mobileSidebar : ""
+        } ${isSidebarCollapsed ? styles.sidebarCollapsed : ""} ${
+          isDragging ? styles.sidebarDragging : ""
+        }`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Header */}
         <div className={styles.sidebarHeader}>
@@ -1982,26 +2351,29 @@ const Component = () => {
               width={50}
               height={50}
               className={styles.logo}
+              priority
             />
             <div className={styles.titleContainer}>
               <h1 className={styles.sidebarTitle}>{t("header.title")}</h1>
               <p className={styles.sidebarSubtitle}>{t("header.subtitle")}</p>
             </div>
           </div>
-          {/* Language Selector */}
-          <div className={styles.languageSelector}>
-            <select
-              value={locale}
-              onChange={(e) => changeLanguage(e.target.value)}
-              className={styles.languageSelect}
-              title="Select language"
-            >
-              {availableLocales.map((lang) => (
-                <option key={lang} value={lang}>
-                  {t(`languages.${lang}`)}
-                </option>
-              ))}
-            </select>
+          {/* Header Actions */}
+          <div className={styles.headerActions}>
+            <div className={styles.languageSelector}>
+              <select
+                value={locale}
+                onChange={(e) => changeLanguage(e.target.value)}
+                className={styles.languageSelect}
+                title="Select language"
+              >
+                {availableLocales.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {t(`languages.${lang}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -2019,8 +2391,8 @@ const Component = () => {
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <path d="m21 21-4.35-4.35"></path>
+                  <circle key="search-circle" cx="11" cy="11" r="8"></circle>
+                  <path key="search-handle" d="m21 21-4.35-4.35"></path>
                 </svg>
               </div>
               <input
@@ -2063,8 +2435,8 @@ const Component = () => {
                 stroke="currentColor"
                 strokeWidth="2"
               >
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                <circle cx="12" cy="10" r="3"></circle>
+                <path key="location-pin" d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle key="location-dot" cx="12" cy="10" r="3"></circle>
               </svg>
             </button>
           </div>
@@ -2112,9 +2484,9 @@ const Component = () => {
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <path d="M2 12h20"></path>
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                  <circle key="globe-circle" cx="12" cy="12" r="10"></circle>
+                  <path key="globe-horizontal" d="M2 12h20"></path>
+                  <path key="globe-vertical" d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                 </svg>
               </button>
             </div>
@@ -2139,9 +2511,14 @@ const Component = () => {
                   className={`${styles.luxuryResultItem} ${
                     activeCard === result.uniqueId ? styles.activeResult : ""
                   }`}
-                  onClick={() => handleResultItemClick(result)}
+                  onClick={(e) => handleResultItemClick(result, e)}
                   onKeyDown={(e) => handleKeyDown(e, result)}
                   tabIndex={0}
+                  style={{
+                    opacity: (loading || isInitialLoading) ? 0.5 : 1,
+                    pointerEvents: (loading || isInitialLoading) ? 'none' : 'auto',
+                    cursor: (loading || isInitialLoading) ? 'wait' : 'pointer'
+                  }}
                   role="button"
                   aria-label={`${
                     (result.fields &&
@@ -2190,7 +2567,7 @@ const Component = () => {
                     )}
                     {result.fields && result.fields[PHONE_FIELD_ID] && (
                       <p className={styles.resultItemPhone}>
-                        📞 {result.fields[PHONE_FIELD_ID]}
+                        📞 {formatPhoneNumber(result.fields[PHONE_FIELD_ID])}
                       </p>
                     )}
                   </div>
@@ -2227,7 +2604,11 @@ const Component = () => {
       </div>
 
       {/* Full Height Map */}
-      <div className={styles.luxuryMapWrapper}>
+      <div
+        className={`${styles.luxuryMapWrapper} ${
+          isSidebarCollapsed ? styles.sidebarCollapsed : ""
+        }`}
+      >
         <div ref={mapContainer} className={styles.luxuryMapContainer} />
         {isMapLoading && (
           <div className={styles.mapOverlay}>

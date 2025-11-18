@@ -12,3 +12,15 @@ body {
   width: 100%;
   overflow-x: hidden;
 }
+
+/* Mobile-specific body styles for better performance and compatibility */
+@media screen and (max-width: 768px) {
+  body {
+    /* Prevent zoom on input focus on iOS */
+    -webkit-text-size-adjust: 100%;
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+    /* Improve scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+  }
+}
