@@ -29,6 +29,7 @@ export default async function handler(req, res) {
   const COUNTRY_FIELD_ID = process.env.AIRTABLE_COUNTRY_FIELD_ID;
   const REGION_FIELD_ID = process.env.AIRTABLE_REGION_FIELD_ID;
   const SCHOOL_ADDRESS_FIELD_ID = process.env.AIRTABLE_SCHOOL_ADDRESS_FIELD_ID;
+  const GB_NAME_FIELD_ID = process.env.AIRTABLE_GB_NAME_FIELD_ID;
 
   // Validate required env variables
   if (!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY || !AIRTABLE_TABLE_ID) {
@@ -56,6 +57,7 @@ export default async function handler(req, res) {
     if (LATITUDE_FIELD_ID) fields.push(LATITUDE_FIELD_ID);
     if (LONGITUDE_FIELD_ID) fields.push(LONGITUDE_FIELD_ID);
     if (SCHOOL_ADDRESS_FIELD_ID) fields.push(SCHOOL_ADDRESS_FIELD_ID);
+    if (GB_NAME_FIELD_ID) fields.push(GB_NAME_FIELD_ID);
 
     const fieldsParam = fields
       .map((field) => `fields[]=${encodeURIComponent(field)}`)

@@ -23,6 +23,7 @@ const IS_PREMIUM_FIELD_ID = "fldz7T3CgMibrITSF";
 const COUNTRY_FIELD_ID = "fldUzCdFx9eaLaK00";
 const REGION_FIELD_ID = "fldYWyxokH8Zd9BIU";
 const SCHOOL_ADDRESS_FIELD_ID = "fldZ6B3ztVZModUp0";
+const GB_NAME_FIELD_ID = "fldlMMu2LaP0fgpnH";
 
 // Airtable configuration (IDs only - not sensitive)
 // These are used for cache keys and component logic
@@ -398,13 +399,10 @@ const Component = () => {
       const fields = location.fields || location;
 
       const isPremium = fields[IS_PREMIUM_FIELD_ID] || false;
-      // Try multiple possible school name fields
+      // Use GB Name field (formula: replaces "Gracie Barra" with "GB") as primary display name
       const schoolName =
+        fields[GB_NAME_FIELD_ID] ||
         fields[SCHOOL_FIELD_ID] ||
-        fields["School Name"] ||
-        fields["Name"] ||
-        fields["Title"] ||
-        fields["Location Name"] ||
         null;
 
       const locationName =
@@ -2547,7 +2545,8 @@ const Component = () => {
                   role="button"
                   aria-label={`${
                     (result.fields &&
-                      (result.fields[SCHOOL_FIELD_ID] ||
+                      (result.fields[GB_NAME_FIELD_ID] ||
+                        result.fields[SCHOOL_FIELD_ID] ||
                         result.fields[ADDRESS_FIELD_ID])) ||
                     "Location"
                   } - ${
@@ -2559,15 +2558,11 @@ const Component = () => {
                   <div className={styles.resultItemHeader}>
                     <h4 className={styles.resultItemTitle}>
                       {(() => {
-                        // Try multiple possible school name fields with proper null checks
                         if (!result.fields) return "Location";
 
                         const schoolName =
-                          result.fields[SCHOOL_FIELD_ID] ||
-                          result.fields["School Name"] ||
-                          result.fields["Name"] ||
-                          result.fields["Title"] ||
-                          result.fields["Location Name"];
+                          result.fields[GB_NAME_FIELD_ID] ||
+                          result.fields[SCHOOL_FIELD_ID];
                         return (
                           schoolName ||
                           result.fields[ADDRESS_FIELD_ID] ||
