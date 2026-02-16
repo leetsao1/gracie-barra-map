@@ -74,7 +74,7 @@ export const useTranslation = () => {
     // Handle interpolation
     if (typeof value === "string" && options) {
       return value.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-        return options[key] || match;
+        return options[key] != null ? options[key] : match;
       });
     }
 

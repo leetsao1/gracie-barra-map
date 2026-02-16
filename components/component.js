@@ -2520,9 +2520,11 @@ const Component = () => {
         <div className={styles.resultsSection}>
           <div className={styles.resultsHeader}>
             <h3 className={styles.sectionTitle}>
-              {t("results.titleWithCount", {
-                count: searchResults ? searchResults.length : 0,
-              })}
+              {isInitialLoading || loading
+                ? t("results.title")
+                : t("results.titleWithCount", {
+                    count: searchResults ? searchResults.length : 0,
+                  })}
             </h3>
           </div>
 
