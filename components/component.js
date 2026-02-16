@@ -1087,7 +1087,6 @@ const Component = () => {
     async (locations = allLocations) => {
       if (!mapInstance.current || !locations.length) return;
 
-      console.log('[filterAndDisplayLocations] Starting processing of', locations.length, 'locations');
       // Set loading state to prevent premature clicks
       setLoading(true);
       setIsInitialLoading(true);
@@ -1164,8 +1163,6 @@ const Component = () => {
         const start = currentBatch * BATCH_SIZE;
         const end = Math.min(start + BATCH_SIZE, locationsWithIds.length);
 
-        console.log(`[createMarkerBatch] Creating markers ${start} to ${end} of ${locationsWithIds.length}`);
-
         for (let i = start; i < end; i++) {
           const location = locationsWithIds[i];
 
@@ -1191,12 +1188,9 @@ const Component = () => {
                 e.preventDefault();
               }
 
-              console.log('[Marker Click] Clicked marker for:', uniqueId);
-
               try {
                 // Prevent clicks while locations are still being processed
                 if (loading || isInitialLoading) {
-                  console.log('[Marker Click] Blocked click - still loading');
                   return;
                 }
 
@@ -1293,7 +1287,7 @@ const Component = () => {
         if (currentBatch * BATCH_SIZE < locationsWithIds.length) {
           requestAnimationFrame(createMarkerBatch);
         } else {
-          console.log(`[createMarkerBatch] Finished creating all ${markersRef.current.length} markers`);
+          // All markers created
         }
       };
 
@@ -1310,7 +1304,6 @@ const Component = () => {
       // Clear loading state after a delay to ensure markers are created
       // The markers are created asynchronously via requestAnimationFrame
       setTimeout(() => {
-        console.log('[filterAndDisplayLocations] Processing complete, enabling clicks');
         setLoading(false);
         setIsInitialLoading(false);
       }, 500);
@@ -1322,7 +1315,6 @@ const Component = () => {
   // This handles both initial load and filter changes
   useEffect(() => {
     if (allLocations.length > 0 && mapInitialized) {
-      console.log('[filterAndDisplayLocations useEffect] Triggered with', allLocations.length, 'locations');
       // Use setTimeout to defer marker creation slightly
       const timer = setTimeout(() => {
         filterAndDisplayLocations();
@@ -1613,13 +1605,6 @@ const Component = () => {
   const handleLocationSelect = useCallback(
     (location) => {
       try {
-        console.log('[handleLocationSelect] Called with location:', {
-          hasLocation: !!location,
-          hasCoordinates: !!(location && location.coordinates),
-          uniqueId: location?.uniqueId,
-          fields: location?.fields ? Object.keys(location.fields) : 'no fields'
-        });
-
         if (!location || !location.coordinates) {
           console.error('[handleLocationSelect] Missing location or coordinates');
           return;
@@ -1633,7 +1618,6 @@ const Component = () => {
 
         // Smooth map transition to the exact location
         if (mapInstance.current) {
-          console.log('[handleLocationSelect] Flying to coordinates:', location.coordinates);
           mapInstance.current.flyTo({
             center: location.coordinates,
             zoom: 14,
@@ -1643,7 +1627,6 @@ const Component = () => {
 
           // Open popup with the location data after a short delay to ensure smooth animation
           setTimeout(() => {
-            console.log('[handleLocationSelect] Opening popup for:', location.uniqueId);
             try {
               openPopup(null, location.coordinates, location.uniqueId, location);
             } catch (popupError) {
@@ -1681,7 +1664,6 @@ const Component = () => {
       try {
         // Prevent clicks while locations are still being processed
         if (loading || isInitialLoading) {
-          console.log('[handleResultItemClick] Blocked click - still loading');
           if (event) {
             event.preventDefault();
             event.stopPropagation();
