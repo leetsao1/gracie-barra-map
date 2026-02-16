@@ -1375,14 +1375,18 @@ const Component = () => {
     clearAllMarkers();
 
     try {
-      // First get all locations
-      const allLocations = await fetchLocations(forceRefresh);
+      // Use already-loaded locations to avoid triggering the allLocations useEffect,
+      // which would re-run filterAndDisplayLocations and zoom out to show all pins.
+      // Only call fetchLocations if we don't have data yet or forceRefresh is requested.
+      const locations = (allLocations.length > 0 && !forceRefresh)
+        ? allLocations
+        : await fetchLocations(forceRefresh);
 
       // Filter premium locations if needed
       const filteredByPremium =
         premiumFilter === "premium"
-          ? allLocations.filter((loc) => loc.fields[IS_PREMIUM_FIELD_ID])
-          : allLocations;
+          ? locations.filter((loc) => loc.fields[IS_PREMIUM_FIELD_ID])
+          : locations;
 
       // Geocode all locations
       const geocodedLocations = await batchGeocodeLocations(filteredByPremium);
@@ -1513,6 +1517,8 @@ const Component = () => {
       // Process results - show fuzzy text matches or locations within radius
       const locationsToShow = fuzzyTextResults || geocodedLocations;
       const bounds = new mapboxgl.LngLatBounds();
+      // Use user's GPS location for distance if available, otherwise use search center
+      const distanceOrigin = userLocation || searchCoords;
       const results = locationsToShow
         .filter((location) => {
           if (!location?.coordinates) return false;
@@ -1527,7 +1533,7 @@ const Component = () => {
         })
         .map((location, index) => {
           const distance = haversineDistance(
-            searchCoords,
+            distanceOrigin,
             location.coordinates
           );
           bounds.extend(location.coordinates);
@@ -1593,7 +1599,7 @@ const Component = () => {
           maxZoom: 12,
         });
 
-        // If we have a center location, select it
+        // If we have a center location from text search, select it
         if (centerLocation) {
           const centerResult = results.find(
             (r) => r.originalId === centerLocation.id
@@ -1604,13 +1610,8 @@ const Component = () => {
               coordinates: centerResult.coordinates,
             });
           }
-        } else if (Array.isArray(addressOrCoords)) {
-          // GPS/coordinate search: fly to closest location (already sorted by distance)
-          handleLocationSelect({
-            ...results[0],
-            coordinates: results[0].coordinates,
-          });
         }
+        // GPS/coordinate search: fitBounds already shows the radial view
       } else {
         setLocationError(t("results.noResults"));
       }
@@ -2552,7 +2553,7 @@ const Component = () => {
                         ? result.fields[ADDRESS_FIELD_ID]
                         : t("location.notAvailable")}
                     </p>
-                    {result.distance && (
+                    {result.distance != null && (
                       <p className={styles.resultItemDistance}>
                         {result.distance.toFixed(1)} miles away
                       </p>
