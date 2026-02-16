@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import styles from "../styles/style.module.css";
 import "mapbox-gl/dist/mapbox-gl.css";
-import "bootstrap/dist/css/bootstrap.min.css";
+
 import Image from "next/image";
 import { useTranslation } from "../hooks/useTranslation";
 import safeStorage from "../utils/safeStorage";
@@ -89,77 +89,25 @@ function isMobileDevice() {
   return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-// Add this helper function near the top with other utility functions
-const isStateSearch = (placeName, placeType) => {
-  const usStates = [
-    "alabama",
-    "alaska",
-    "arizona",
-    "arkansas",
-    "california",
-    "colorado",
-    "connecticut",
-    "delaware",
-    "florida",
-    "georgia",
-    "hawaii",
-    "idaho",
-    "illinois",
-    "indiana",
-    "iowa",
-    "kansas",
-    "kentucky",
-    "louisiana",
-    "maine",
-    "maryland",
-    "massachusetts",
-    "michigan",
-    "minnesota",
-    "mississippi",
-    "missouri",
-    "montana",
-    "nebraska",
-    "nevada",
-    "new hampshire",
-    "new jersey",
-    "new mexico",
-    "new york",
-    "north carolina",
-    "north dakota",
-    "ohio",
-    "oklahoma",
-    "oregon",
-    "pennsylvania",
-    "rhode island",
-    "south carolina",
-    "south dakota",
-    "tennessee",
-    "texas",
-    "utah",
-    "vermont",
-    "virginia",
-    "washington",
-    "west virginia",
-    "wisconsin",
-    "wyoming",
-  ];
-  return (
-    placeType.includes("region") && usStates.includes(placeName.toLowerCase())
-  );
-};
+// HTML escape helper to prevent XSS in popup content
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-// Add state bounding boxes near the top with other constants
-const STATE_BOUNDS = {
-  arizona: [-114.8183, 31.3322, -109.0452, 37.0043], // [minLng, minLat, maxLng, maxLat]
-  // Add other states as needed
-};
-
-// Helper function to check if a point is within bounds
-const isPointWithinBounds = (point, bounds) => {
-  const [lng, lat] = point;
-  const [minLng, minLat, maxLng, maxLat] = bounds;
-  return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat;
-};
+// URL sanitizer -- only allow http/https protocols
+function sanitizeUrl(url) {
+  if (!url) return "";
+  const trimmed = String(url).trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-zA-Z0-9]/.test(trimmed)) return "https://" + trimmed;
+  return "";
+}
 
 // Use default Mapbox popup positioning - no custom offsets
 const calculatePopupOffset = () => {
@@ -336,7 +284,7 @@ const Component = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const [activeCard, setActiveCard] = useState(null);
-  const [locationCache, setLocationCache] = useState(new Map());
+  const locationCacheRef = useRef(new Map());
   const [isSearching, setIsSearching] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -422,49 +370,51 @@ const Component = () => {
 
       const premiumDescription = t("location.premiumDescription");
 
+      const safeWebsite = sanitizeUrl(website);
+
       return `
-      <div class="${styles.locationCard}" data-location-id="${locationId}">
+      <div class="${styles.locationCard}" data-location-id="${escapeHtml(locationId)}">
         <div class="${styles.locationHeader}" data-draggable="true">
           <div class="${styles.dragHandle}">⋮⋮</div>
-          <h3>${locationName}</h3>
+          <h3>${escapeHtml(locationName)}</h3>
           <button class="${
             styles.popupCloseButton
           }" onclick="this.closest('.mapboxgl-popup').remove()" aria-label="Close popup">×</button>
           <div class="${styles.locationBadge} ${
         isPremium ? styles.premiumBadge : styles.regularBadge
       }">
-            ${isPremium ? t("location.premium") : t("location.schoolName")}
+            ${isPremium ? escapeHtml(t("location.premium")) : escapeHtml(t("location.schoolName"))}
           </div>
           ${
             isPremium
               ? `
             <div class="${styles.premiumDescription}">
-              ${premiumDescription}
+              ${escapeHtml(premiumDescription)}
             </div>
           `
               : ""
           }
         </div>
-        
+
         <div class="${styles.locationContent}">
           <div class="${styles.locationInfo}">
-            <h4>${t("location.address")}</h4>
+            <h4>${escapeHtml(t("location.address"))}</h4>
             <p><a href="https://maps.google.com/?q=${encodeURIComponent(
               fullAddress
-            )}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: none;">${fullAddress}</a></p>
+            )}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: none;">${escapeHtml(fullAddress)}</a></p>
           </div>
 
           <div class="${styles.locationInfo}">
-            <h4>${t("location.instructor")}</h4>
-            <p>${instructor}</p>
+            <h4>${escapeHtml(t("location.instructor"))}</h4>
+            <p>${escapeHtml(instructor)}</p>
           </div>
 
           <div class="${styles.locationInfo}">
-            <h4>${t("location.phone")}</h4>
+            <h4>${escapeHtml(t("location.phone"))}</h4>
             <p>${
               phoneDigits
-                ? `<a href="tel:${phoneDigits}" style="color: #007bff; text-decoration: none;">${formattedPhone}</a>`
-                : formattedPhone
+                ? `<a href="tel:${escapeHtml(phoneDigits)}" style="color: #007bff; text-decoration: none;">${escapeHtml(formattedPhone)}</a>`
+                : escapeHtml(formattedPhone)
             }</p>
           </div>
 
@@ -472,21 +422,21 @@ const Component = () => {
             email
               ? `
           <div class="${styles.locationInfo}">
-            <h4>${t("location.email")}</h4>
-            <p><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></p>
+            <h4>${escapeHtml(t("location.email"))}</h4>
+            <p><a href="mailto:${escapeHtml(email)}" style="color: #007bff; text-decoration: none;">${escapeHtml(email)}</a></p>
           </div>
           `
               : ""
           }
-          
+
           ${
-            website
+            safeWebsite
               ? `
           <div class="${styles.locationLinks}">
-            <a href="${website}" target="_blank" rel="noopener noreferrer" class="${
+            <a href="${escapeHtml(safeWebsite)}" target="_blank" rel="noopener noreferrer" class="${
                   styles.actionButton
                 }">
-              ${t("location.visitWebsite")}
+              ${escapeHtml(t("location.visitWebsite"))}
             </a>
           </div>
           `
@@ -636,7 +586,7 @@ const Component = () => {
       }
 
       // Fallback to address check for geocoding
-      const address = loc.fields["Address for Geolocation"];
+      const address = loc.fields[SCHOOL_ADDRESS_FIELD_ID];
       return (
         address &&
         typeof address === "string" &&
@@ -669,13 +619,13 @@ const Component = () => {
 
     // First check cache for locations that need geocoding
     const uncachedLocations = locationsToGeocode.filter(
-      (loc) => !locationCache.has(loc.fields["School Address"])
+      (loc) => !locationCacheRef.current.has(loc.fields[SCHOOL_ADDRESS_FIELD_ID])
     );
 
     if (uncachedLocations.length === 0) {
       const geocodedLocations = locationsToGeocode.map((loc) => ({
         ...loc,
-        coordinates: locationCache.get(loc.fields["School Address"]),
+        coordinates: locationCacheRef.current.get(loc.fields[SCHOOL_ADDRESS_FIELD_ID]),
       }));
       return [...directLocations, ...geocodedLocations];
     }
@@ -709,9 +659,9 @@ const Component = () => {
         .map((location, index) => {
           const result = results[index];
           if (result && result.success && result.coordinates) {
-            const address = location.fields["School Address"].trim();
+            const address = location.fields[SCHOOL_ADDRESS_FIELD_ID].trim();
             // Update cache
-            setLocationCache((prev) => new Map(prev).set(address, result.coordinates));
+            locationCacheRef.current.set(address, result.coordinates);
             return { ...location, coordinates: result.coordinates };
           }
           return null;
@@ -721,11 +671,11 @@ const Component = () => {
       // Add cached locations
       const cachedResults = locationsToGeocode
         .filter((loc) =>
-          locationCache.has(loc.fields["Address for Geolocation"])
+          locationCacheRef.current.has(loc.fields[SCHOOL_ADDRESS_FIELD_ID])
         )
         .map((loc) => ({
           ...loc,
-          coordinates: locationCache.get(loc.fields["Address for Geolocation"]),
+          coordinates: locationCacheRef.current.get(loc.fields[SCHOOL_ADDRESS_FIELD_ID]),
         }));
 
       // Combine direct coordinates with geocoded results
@@ -958,7 +908,9 @@ const Component = () => {
         // Store the marker reference
         userMarkerRef.current = newUserMarker;
         setUserLocation([lng, lat]);
-      } catch (error) {}
+      } catch (error) {
+        console.error("Error adding user marker:", error);
+      }
     },
     [removeUserMarker]
   );
@@ -1402,6 +1354,7 @@ const Component = () => {
     setLocationError(null);
     setIsResultsVisible(true);
     closeAllPopups();
+    clearAllMarkers();
 
     try {
       // First get all locations
@@ -1418,7 +1371,7 @@ const Component = () => {
 
       if (!geocodedLocations.length) {
         setLoading(false);
-        setLocationError("No locations found. Please try again.");
+        setLocationError(t("results.noResults"));
         return;
       }
 
@@ -1476,7 +1429,8 @@ const Component = () => {
               if (bestMatch.coordinates) {
                 searchCoords = bestMatch.coordinates;
                 centerLocation = bestMatch;
-                fuzzyTextResults = scoredMatches.map((m) => m.location);
+                // Cap results to prevent performance issues with broad searches
+                fuzzyTextResults = scoredMatches.slice(0, 200).map((m) => m.location);
               }
             }
           }
@@ -1523,16 +1477,16 @@ const Component = () => {
               }
             }
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error("Search/geocoding error:", error);
+        }
       } else if (Array.isArray(addressOrCoords)) {
         searchCoords = addressOrCoords;
       }
 
       if (!searchCoords) {
         setLoading(false);
-        setLocationError(
-          "Unable to find that location. Please try a different search term."
-        );
+        setLocationError(t("results.noResults"));
         return;
       }
 
@@ -1609,6 +1563,7 @@ const Component = () => {
 
       results.sort((a, b) => a.distance - b.distance);
       setSearchResults(results);
+      return results;
 
       if (results.length > 0) {
         // Extend bounds to include search center
@@ -1632,9 +1587,7 @@ const Component = () => {
           }
         }
       } else {
-        setLocationError(
-          "No locations found within the selected radius. Try increasing the search radius."
-        );
+        setLocationError(t("results.noResults"));
       }
 
       if (window.innerWidth <= 768) {
@@ -1811,7 +1764,7 @@ const Component = () => {
           setSearchStatus(t("status.loadingLocations"));
 
           // Check cache age - if older than 5 minutes or empty, force refresh
-          const cacheKey = `${AIRTABLE_BASE_ID}-${AIRTABLE_TABLE_ID}-${AIRTABLE_VIEW_ID}`;
+          const cacheKey = "locations-cache";
           const cacheTimestamp = safeStorage.getItem(`${cacheKey}-timestamp`);
           const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
           const shouldForceRefresh = !cacheTimestamp || cacheAge > 300000; // 5 minutes
@@ -1931,8 +1884,8 @@ const Component = () => {
   const handleSearch = async () => {
     setSearchStatus(t("status.searching"));
     try {
-      await runSearch(searchQuery, 50, premiumFilter);
-      const resultCount = searchResults.length;
+      const results = await runSearch(searchQuery, 50, premiumFilter);
+      const resultCount = results ? results.length : 0;
       setSearchStatus(t("status.foundResults", { count: resultCount }));
     } catch (error) {
       setSearchStatus(t("status.error"));
@@ -1946,7 +1899,7 @@ const Component = () => {
 
       setIsSearching(true);
       setLoading(true);
-      setSearchStatus("Filtering locations...");
+      setSearchStatus(t("status.searching"));
 
       try {
         // Apply filtering logic
@@ -2018,7 +1971,7 @@ const Component = () => {
 
   const showAllLocations = async () => {
     if (!mapInstance.current || !mapInitialized) {
-      setSearchStatus("Please wait for the map to initialize...");
+      setSearchStatus(t("status.loading"));
       return;
     }
 
@@ -2026,11 +1979,11 @@ const Component = () => {
     setIsSearching(true);
     setLoading(true);
     try {
-      // Fetch all locations and let the filter system handle display
-      await fetchLocations(true);
+      // Fetch all locations and use returned data directly (not stale state)
+      const freshLocations = await fetchLocations(true);
 
-      // Get the filtered locations that are currently displayed on the map
-      const filteredLocations = allLocations.filter((loc) => {
+      // Get the filtered locations
+      const filteredLocations = (freshLocations || []).filter((loc) => {
         // Apply the same filters that are used in filterAndDisplayLocations
         if (premiumFilter === "premium" && !loc.fields[IS_PREMIUM_FIELD_ID]) {
           return false;
@@ -2272,7 +2225,7 @@ const Component = () => {
   // Track user interaction to prevent auto-show after manual close
   useEffect(() => {
     if (isSidebarCollapsed) {
-      localStorage.setItem("gb-map-user-interacted", "true");
+      safeStorage.setItem("gb-map-user-interacted", "true");
     }
   }, [isSidebarCollapsed]);
 
@@ -2280,7 +2233,7 @@ const Component = () => {
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
     // Mark as user interaction to prevent auto-show
-    localStorage.setItem("gb-map-user-interacted", "true");
+    safeStorage.setItem("gb-map-user-interacted", "true");
   };
 
   return (
@@ -2573,7 +2526,7 @@ const Component = () => {
                       })()}
                     </h4>
                     {result.fields && result.fields[IS_PREMIUM_FIELD_ID] && (
-                      <span className={styles.luxuryPremiumBadge}>Premium</span>
+                      <span className={styles.luxuryPremiumBadge}>{t("location.premium")}</span>
                     )}
                   </div>
                   <div className={styles.resultItemDetails}>
@@ -2631,7 +2584,7 @@ const Component = () => {
           isSidebarCollapsed ? styles.sidebarCollapsed : ""
         }`}
       >
-        <div ref={mapContainer} className={styles.luxuryMapContainer} />
+        <div id="main-content" ref={mapContainer} className={styles.luxuryMapContainer} role="application" aria-label="Gracie Barra school locations map" />
         {isMapLoading && (
           <div className={styles.mapOverlay}>
             <div className={styles.mapLoading}>

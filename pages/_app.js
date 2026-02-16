@@ -1,41 +1,7 @@
+import { useEffect } from "react";
 import "../styles/globals.css";
 import { ErrorBoundary } from 'react-error-boundary';
 import * as Sentry from '@sentry/nextjs';
-
-// Global error handler for mobile crash prevention
-if (typeof window !== 'undefined') {
-  window.addEventListener('error', (event) => {
-    // Prevent crashes from propagating
-    console.error('Global error caught:', event.error);
-    // Don't prevent default to allow normal error reporting
-  });
-
-  window.addEventListener('unhandledrejection', (event) => {
-    // Handle unhandled promise rejections
-    console.error('Unhandled promise rejection:', event.reason);
-    // Prevent the default handler from running
-    event.preventDefault();
-  });
-
-  // Add mobile-specific error handling
-  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-    // Disable context menu on long press to prevent crashes
-    document.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      return false;
-    });
-
-    // Prevent double-tap zoom which can cause issues
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', (event) => {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) {
-        event.preventDefault();
-      }
-      lastTouchEnd = now;
-    }, false);
-  }
-}
 
 function ErrorFallback({ error, resetErrorBoundary }) {
   return (
@@ -92,6 +58,59 @@ function ErrorFallback({ error, resetErrorBoundary }) {
 }
 
 function MyApp({ Component, pageProps }) {
+  useEffect(() => {
+    const errorHandler = (event) => {
+      // Prevent crashes from propagating
+      console.error('Global error caught:', event.error);
+      // Don't prevent default to allow normal error reporting
+    };
+
+    const rejectionHandler = (event) => {
+      // Handle unhandled promise rejections
+      console.error('Unhandled promise rejection:', event.reason);
+      // Prevent the default handler from running
+      event.preventDefault();
+    };
+
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', rejectionHandler);
+
+    let contextMenuHandler;
+    let touchEndHandler;
+
+    // Add mobile-specific error handling
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      // Disable context menu on long press to prevent crashes
+      contextMenuHandler = (e) => {
+        e.preventDefault();
+        return false;
+      };
+      document.addEventListener('contextmenu', contextMenuHandler);
+
+      // Prevent double-tap zoom which can cause issues
+      let lastTouchEnd = 0;
+      touchEndHandler = (event) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      };
+      document.addEventListener('touchend', touchEndHandler, false);
+    }
+
+    return () => {
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', rejectionHandler);
+      if (contextMenuHandler) {
+        document.removeEventListener('contextmenu', contextMenuHandler);
+      }
+      if (touchEndHandler) {
+        document.removeEventListener('touchend', touchEndHandler);
+      }
+    };
+  }, []);
+
   return (
     <ErrorBoundary
       FallbackComponent={ErrorFallback}

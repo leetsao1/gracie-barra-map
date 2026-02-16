@@ -65,6 +65,7 @@ export default async function handler(req, res) {
 
     // Fetch with pagination and retry logic
     do {
+      retryCount = 0;
       let url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_ID}?view=${AIRTABLE_VIEW_ID}&returnFieldsByFieldId=true&${fieldsParam}`;
 
       if (offset) {
@@ -77,12 +78,16 @@ export default async function handler(req, res) {
       // Retry loop for rate limiting
       while (!success && retryCount < maxRetries) {
         try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
           response = await fetch(url, {
             headers: {
               Authorization: `Bearer ${AIRTABLE_API_KEY}`,
               "Content-Type": "application/json",
             },
+            signal: controller.signal,
           });
+          clearTimeout(timeout);
 
           if (response.status === 429) {
             // Rate limited - wait and retry

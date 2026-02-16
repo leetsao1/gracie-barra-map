@@ -1,3 +1,5 @@
+import React from "react";
+
 /**
  * Debounce utility function
  * Delays execution of a function until after a specified delay

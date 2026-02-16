@@ -1,17 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Head from "next/head";
-import Modal from "react-modal";
 import Component from "../components/component";
-import "mapbox-gl/dist/mapbox-gl.css";
 
 const Index = () => {
-  // Ensure modal works with Next.js
-  useEffect(() => {
-    Modal.setAppElement("body"); // Set this to 'body' since there's no #root
-  }, []);
-
   return (
     <>
+      <Head>
+        <title>Gracie Barra - Find a School</title>
+        <meta
+          name="description"
+          content="Find Gracie Barra Jiu-Jitsu schools worldwide. Search by location to discover the nearest Gracie Barra academy and start your journey."
+        />
+      </Head>
       <style>{`
         body {
           margin: 0;

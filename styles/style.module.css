@@ -990,7 +990,7 @@
 
 /* Mobile swipe indicator */
 .mobileSidebar::after {
-  content: "Swipe down to close";
+  content: "\2304";
   position: absolute;
   bottom: 16px;
   left: 50%;

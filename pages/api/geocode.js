@@ -87,7 +87,7 @@ export default async function handler(req, res) {
             }
           } catch (error) {
             console.error(`Geocoding error for ${address}:`, error.message);
-            return { address, success: false, error: error.message };
+            return { address, success: false, error: "Geocoding failed" };
           }
         })
       );
