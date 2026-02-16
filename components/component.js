@@ -1565,7 +1565,6 @@ const Component = () => {
 
       results.sort((a, b) => a.distance - b.distance);
       setSearchResults(results);
-      return results;
 
       if (results.length > 0) {
         // Extend bounds to include search center
@@ -1595,6 +1594,8 @@ const Component = () => {
       if (window.innerWidth <= 768) {
         setIsSearchCollapsed(true);
       }
+
+      return results;
     } catch (error) {
       setLocationError(
         "An error occurred during the search. Please try again."
