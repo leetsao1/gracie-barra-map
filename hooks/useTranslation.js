@@ -32,7 +32,7 @@ export const useTranslation = () => {
               filters: { premium: "Premium only", country: "All countries", region: "All regions", allLocations: "All locations" },
               status: { loading: "Loading...", searching: "Searching...", loadingLocations: "Loading locations...", ready: "Ready to search", error: "Error loading locations", noResults: "No locations found", foundResults: "Found {{count}} locations" },
               results: { title: "Search Results", titleWithCount: "Search Results ({{count}})", noResults: "No search results found. Try adjusting your filters or search terms." },
-              actions: { getDirections: "Get Directions" },
+              actions: { getDirections: "Get Directions", tryAgain: "Try Again", retry: "Retry" },
               location: { schoolName: "School Name", address: "Address", phone: "Phone", email: "Email", website: "Website", instructor: "Head Instructor", premium: "Premium School", notAvailable: "Not Available", visitWebsite: "Visit Website", emailSchool: "Email School", callNow: "Call Now", premiumDescription: "Gracie Barra Premium Schools are academies that meet a higher standard of excellence within the Gracie Barra network. These schools go beyond the basic operational standards, reflecting the highest level of compliance with Gracie Barra's methodology, facilities, and service quality." },
               map: { loading: "Loading map...", error: "Map loading error" },
               languages: { en: "English", pt: "Português", es: "Español", fr: "Français" }
@@ -46,7 +46,7 @@ export const useTranslation = () => {
             filters: { premium: "Premium only", country: "All countries", region: "All regions", allLocations: "All locations" },
             status: { loading: "Loading...", searching: "Searching...", loadingLocations: "Loading locations...", ready: "Ready to search", error: "Error loading locations", noResults: "No locations found", foundResults: "Found {{count}} locations" },
             results: { title: "Search Results", titleWithCount: "Search Results ({{count}})", noResults: "No search results found. Try adjusting your filters or search terms." },
-            actions: { getDirections: "Get Directions" },
+            actions: { getDirections: "Get Directions", tryAgain: "Try Again", retry: "Retry" },
             location: { schoolName: "School Name", address: "Address", phone: "Phone", email: "Email", website: "Website", instructor: "Head Instructor", premium: "Premium School", notAvailable: "Not Available", visitWebsite: "Visit Website", emailSchool: "Email School", callNow: "Call Now", premiumDescription: "Gracie Barra Premium Schools are academies that meet a higher standard of excellence within the Gracie Barra network. These schools go beyond the basic operational standards, reflecting the highest level of compliance with Gracie Barra's methodology, facilities, and service quality." },
             map: { loading: "Loading map...", error: "Map loading error" },
             languages: { en: "English", pt: "Português", es: "Español", fr: "Français" }

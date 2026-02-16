@@ -30,7 +30,9 @@
     "noResults": "No search results found. Try adjusting your filters or search terms."
   },
   "actions": {
-    "getDirections": "Get Directions"
+    "getDirections": "Get Directions",
+    "tryAgain": "Try Again",
+    "retry": "Retry"
   },
   "location": {
     "schoolName": "School Name",

@@ -30,7 +30,9 @@
     "noResults": "Nenhum resultado encontrado. Tente ajustar seus filtros ou termos de pesquisa."
   },
   "actions": {
-    "getDirections": "Obter Direções"
+    "getDirections": "Obter Direções",
+    "tryAgain": "Tentar Novamente",
+    "retry": "Tentar Novamente"
   },
   "location": {
     "schoolName": "Nome da Escola",

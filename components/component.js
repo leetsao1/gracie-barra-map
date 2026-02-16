@@ -633,7 +633,7 @@ const Component = () => {
     // Process remaining locations that need geocoding using server-side API
     try {
       // Prepare addresses for batch geocoding
-      const addresses = uncachedLocations.map((loc) => loc.fields["School Address"].trim());
+      const addresses = uncachedLocations.map((loc) => loc.fields[SCHOOL_ADDRESS_FIELD_ID].trim());
 
       // Call server-side geocoding API (secure - no exposed keys!)
       const response = await fetch('/api/geocode', {
@@ -811,7 +811,7 @@ const Component = () => {
       return allRecords;
     } catch (error) {
       console.error("Error fetching locations:", error);
-      setLocationError("Unable to fetch locations. Please try again later.");
+      setLocationError(t("status.error"));
       return [];
     }
   };
@@ -1325,11 +1325,7 @@ const Component = () => {
       createMarkerBatch();
 
       setSearchResults(locationsWithIds);
-      setSearchStatus(
-        `Found ${locationsWithIds.length} ${
-          locationsWithIds.length === 1 ? "location" : "locations"
-        }`
-      );
+      setSearchStatus(t("status.foundResults", { count: locationsWithIds.length }));
 
       // Clear loading state after a delay to ensure markers are created
       // The markers are created asynchronously via requestAnimationFrame
@@ -1608,6 +1604,12 @@ const Component = () => {
               coordinates: centerResult.coordinates,
             });
           }
+        } else if (Array.isArray(addressOrCoords)) {
+          // GPS/coordinate search: fly to closest location (already sorted by distance)
+          handleLocationSelect({
+            ...results[0],
+            coordinates: results[0].coordinates,
+          });
         }
       } else {
         setLocationError(t("results.noResults"));
@@ -1619,9 +1621,7 @@ const Component = () => {
 
       return results;
     } catch (error) {
-      setLocationError(
-        "An error occurred during the search. Please try again."
-      );
+      setLocationError(t("status.error"));
     } finally {
       setLoading(false);
       setIsSearching(false);
@@ -2520,17 +2520,17 @@ const Component = () => {
                       (result.fields[GB_NAME_FIELD_ID] ||
                         result.fields[SCHOOL_FIELD_ID] ||
                         result.fields[ADDRESS_FIELD_ID])) ||
-                    "Location"
-                  } - ${
+                    t("location.schoolName")
+                  }${
                     result.distance
-                      ? `${result.distance.toFixed(1)} miles away`
+                      ? ` - ${result.distance.toFixed(1)} mi`
                       : ""
                   }`}
                 >
                   <div className={styles.resultItemHeader}>
                     <h4 className={styles.resultItemTitle}>
                       {(() => {
-                        if (!result.fields) return "Location";
+                        if (!result.fields) return t("location.schoolName");
 
                         const schoolName =
                           result.fields[GB_NAME_FIELD_ID] ||
@@ -2538,7 +2538,7 @@ const Component = () => {
                         return (
                           schoolName ||
                           result.fields[ADDRESS_FIELD_ID] ||
-                          "Location"
+                          t("location.schoolName")
                         );
                       })()}
                     </h4>
@@ -2550,7 +2550,7 @@ const Component = () => {
                     <p className={styles.resultItemAddress}>
                       {result.fields
                         ? result.fields[ADDRESS_FIELD_ID]
-                        : "Address not available"}
+                        : t("location.notAvailable")}
                     </p>
                     {result.distance && (
                       <p className={styles.resultItemDistance}>
@@ -2588,7 +2588,7 @@ const Component = () => {
                 className={styles.retryButton}
                 disabled={loading}
               >
-                Try Again
+                {t("actions.tryAgain")}
               </button>
             )}
           </div>
@@ -2605,7 +2605,7 @@ const Component = () => {
         {isMapLoading && (
           <div className={styles.mapOverlay}>
             <div className={styles.mapLoading}>
-              <p>Loading map...</p>
+              <p>{t("map.loading")}</p>
             </div>
           </div>
         )}
@@ -2613,7 +2613,7 @@ const Component = () => {
           <div className={styles.mapOverlay}>
             <div className={styles.mapError}>
               <p>{mapError}</p>
-              <button onClick={() => window.location.reload()}>Retry</button>
+              <button onClick={() => window.location.reload()}>{t("actions.retry")}</button>
             </div>
           </div>
         )}
