@@ -717,9 +717,39 @@ const Component = () => {
         Date.now() - parseInt(cacheTimestamp) < 300000
       ) {
         try {
-          return JSON.parse(cachedData);
+          const parsed = JSON.parse(cachedData);
+          setAllLocations(parsed);
+
+          // Also populate countries/regions from cache
+          const countries = [
+            ...new Set(
+              parsed
+                .map((record) => record.fields[COUNTRY_FIELD_ID])
+                .filter(
+                  (country) =>
+                    country && (typeof country === "string" ? country.trim() : true)
+                )
+            ),
+          ].sort();
+          const regions = [
+            ...new Set(
+              parsed
+                .map((record) => {
+                  const region = record.fields[REGION_FIELD_ID];
+                  if (Array.isArray(region)) {
+                    return region.filter((r) => r && r.trim());
+                  }
+                  return region && region.trim() ? [region] : [];
+                })
+                .flat()
+                .filter((region) => region && region.trim())
+            ),
+          ].sort();
+          setUniqueCountries(countries);
+          setUniqueRegions(regions);
+
+          return parsed;
         } catch (parseError) {
-          console.warn('Failed to parse cached data, fetching fresh data');
           // Continue to fetch fresh data if parse fails
         }
       }
