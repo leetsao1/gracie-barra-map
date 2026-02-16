@@ -22,6 +22,7 @@ const WEBSITE_FIELD_ID = "fldNf9Wy31ytQSHih";
 const IS_PREMIUM_FIELD_ID = "fldz7T3CgMibrITSF";
 const COUNTRY_FIELD_ID = "fldUzCdFx9eaLaK00";
 const REGION_FIELD_ID = "fldYWyxokH8Zd9BIU";
+const SCHOOL_ADDRESS_FIELD_ID = "fldZ6B3ztVZModUp0";
 
 // Airtable configuration (IDs only - not sensitive)
 // These are used for cache keys and component logic
@@ -165,17 +166,16 @@ const calculatePopupOffset = () => {
   return [0, 0];
 };
 
-// Make popup draggable - DISABLED ON MOBILE for stability
+// Make popup draggable
 const makePopupDraggable = (popupContent, popup) => {
-  // COMPLETELY disable dragging on mobile/touch devices for stability
-  if (window.innerWidth <= 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  // Disable dragging on mobile for better performance
+  if (window.innerWidth <= 768) {
     return;
   }
 
   let isDragging = false;
   let startX, startY, initialOffsetX, initialOffsetY;
   let animationFrame = null;
-  let cleanupHandlers = [];
 
   // Add drag handle to the header - look for the draggable header
   const header = popupContent.querySelector("[data-draggable='true']");
@@ -183,31 +183,30 @@ const makePopupDraggable = (popupContent, popup) => {
     return;
   }
 
-  // Add cursor style to indicate draggable (desktop only)
+  // Add cursor style to indicate draggable
   header.style.cursor = "grab";
   header.style.userSelect = "none";
+  header.style.touchAction = "none"; // Prevent scrolling on touch devices
 
   const startDrag = (e) => {
-    // Only allow mouse events on desktop
-    if (e.type === 'touchstart') {
-      return;
-    }
-    
     isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
+    startX = e.clientX || e.touches[0].clientX;
+    startY = e.clientY || e.touches[0].clientY;
 
-    // Initialize offset tracking
+    // Initialize offset tracking - Mapbox doesn't have getOffset method
     initialOffsetX = 0;
     initialOffsetY = 0;
 
-    // Add visual feedback
+    // Add visual feedback immediately
     header.style.cursor = "grabbing";
     header.style.opacity = "0.9";
+    header.style.transform = "scale(1.05)";
+    header.style.transition = "none"; // Disable transitions during drag
 
-    // Prevent text selection during drag
+    // Prevent text selection and scrolling during drag
     document.body.style.userSelect = "none";
     document.body.style.cursor = "grabbing";
+    document.body.style.overflow = "hidden";
 
     e.preventDefault();
     e.stopPropagation();
@@ -222,8 +221,8 @@ const makePopupDraggable = (popupContent, popup) => {
     }
 
     animationFrame = requestAnimationFrame(() => {
-      const currentX = e.clientX;
-      const currentY = e.clientY;
+      const currentX = e.clientX || e.touches[0].clientX;
+      const currentY = e.clientY || e.touches[0].clientY;
 
       const deltaX = currentX - startX;
       const deltaY = currentY - startY;
@@ -232,8 +231,8 @@ const makePopupDraggable = (popupContent, popup) => {
       const newOffsetX = initialOffsetX + deltaX;
       const newOffsetY = initialOffsetY + deltaY;
 
-      // Keep popup within reasonable bounds
-      const maxOffset = 300;
+      // Keep popup within reasonable bounds - increased for better responsiveness
+      const maxOffset = 300; // Increased maximum offset
       const constrainedOffsetX = Math.max(
         -maxOffset,
         Math.min(maxOffset, newOffsetX)
@@ -243,12 +242,8 @@ const makePopupDraggable = (popupContent, popup) => {
         Math.min(maxOffset, newOffsetY)
       );
 
-      // Update popup offset
-      try {
-        popup.setOffset([constrainedOffsetX, constrainedOffsetY]);
-      } catch (error) {
-        // Silently handle errors
-      }
+      // Update popup offset to move it while keeping arrow aligned
+      popup.setOffset([constrainedOffsetX, constrainedOffsetY]);
     });
 
     e.preventDefault();
@@ -266,42 +261,41 @@ const makePopupDraggable = (popupContent, popup) => {
       animationFrame = null;
     }
 
-    // Reset visual feedback
+    // Reset visual feedback with smooth transition
     header.style.cursor = "grab";
     header.style.opacity = "1";
+    header.style.transform = "scale(1)";
+    header.style.transition = "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)";
 
     document.body.style.userSelect = "";
     document.body.style.cursor = "";
+    document.body.style.overflow = "";
 
     e.preventDefault();
     e.stopPropagation();
   };
 
-  // ONLY add mouse event listeners (not touch) for desktop
-  const mouseDownHandler = (e) => startDrag(e);
-  const mouseMoveHandler = (e) => drag(e);
-  const mouseUpHandler = (e) => stopDrag(e);
+  // Add event listeners for both mouse and touch
+  header.addEventListener("mousedown", startDrag, { passive: false });
+  header.addEventListener("touchstart", startDrag, { passive: false });
 
-  header.addEventListener("mousedown", mouseDownHandler);
-  document.addEventListener("mousemove", mouseMoveHandler);
-  document.addEventListener("mouseup", mouseUpHandler);
+  document.addEventListener("mousemove", drag, { passive: false });
+  document.addEventListener("touchmove", drag, { passive: false });
 
-  // Store handlers for cleanup
-  cleanupHandlers = [
-    { el: header, event: "mousedown", handler: mouseDownHandler },
-    { el: document, event: "mousemove", handler: mouseMoveHandler },
-    { el: document, event: "mouseup", handler: mouseUpHandler },
-  ];
+  document.addEventListener("mouseup", stopDrag, { passive: false });
+  document.addEventListener("touchend", stopDrag, { passive: false });
 
   // Clean up on popup close
   popup.on("close", () => {
     if (animationFrame) {
       cancelAnimationFrame(animationFrame);
     }
-    cleanupHandlers.forEach(({ el, event, handler }) => {
-      el.removeEventListener(event, handler);
-    });
-    cleanupHandlers = [];
+    header.removeEventListener("mousedown", startDrag);
+    header.removeEventListener("touchstart", startDrag);
+    document.removeEventListener("mousemove", drag);
+    document.removeEventListener("touchmove", drag);
+    document.removeEventListener("mouseup", stopDrag);
+    document.removeEventListener("touchend", stopDrag);
   });
 };
 
@@ -403,9 +397,6 @@ const Component = () => {
       // Handle both cases: fields at top level or nested under .fields
       const fields = location.fields || location;
 
-      // MOBILE OPTIMIZATION: Detect mobile device
-      const isMobileDevice = window.innerWidth <= 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
       const isPremium = fields[IS_PREMIUM_FIELD_ID] || false;
       // Try multiple possible school name fields
       const schoolName =
@@ -433,62 +424,36 @@ const Component = () => {
 
       const premiumDescription = t("location.premiumDescription");
 
-      // MOBILE OPTIMIZATION: Simplified content for mobile to reduce memory usage
-      if (isMobileDevice) {
-        return `
-        <div class="${styles.locationCard}" data-location-id="${locationId}" style="max-height: 70vh; overflow-y: auto;">
-          <div class="${styles.locationHeader}">
-            <h3 style="font-size: 16px; padding-right: 40px;">${locationName}</h3>
-            <button class="${styles.popupCloseButton}" onclick="this.closest('.mapboxgl-popup').remove()" aria-label="Close popup">×</button>
-            ${isPremium ? `<div class="${styles.locationBadge} ${styles.premiumBadge}" style="font-size: 11px;">${t("location.premium")}</div>` : ''}
-          </div>
-          
-          <div class="${styles.locationContent}" style="padding: 12px 16px;">
-            <div class="${styles.locationInfo}" style="margin-bottom: 12px;">
-              <h4 style="font-size: 12px;">${t("location.address")}</h4>
-              <p style="font-size: 14px;"><a href="https://maps.google.com/?q=${encodeURIComponent(fullAddress)}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: none;">${fullAddress}</a></p>
-            </div>
-
-            ${instructor !== t("location.notAvailable") ? `
-            <div class="${styles.locationInfo}" style="margin-bottom: 12px;">
-              <h4 style="font-size: 12px;">${t("location.instructor")}</h4>
-              <p style="font-size: 14px;">${instructor}</p>
-            </div>` : ''}
-
-            ${phoneDigits ? `
-            <div class="${styles.locationInfo}" style="margin-bottom: 12px;">
-              <h4 style="font-size: 12px;">${t("location.phone")}</h4>
-              <p style="font-size: 14px;"><a href="tel:${phoneDigits}" style="color: #007bff; text-decoration: none;">${formattedPhone}</a></p>
-            </div>` : ''}
-
-            ${website ? `
-            <div class="${styles.locationLinks}" style="margin-top: 16px;">
-              <a href="${website}" target="_blank" rel="noopener noreferrer" class="${styles.actionButton}" style="display: block; text-align: center; padding: 12px;">
-                ${t("location.visitWebsite")}
-              </a>
-            </div>` : ''}
-          </div>
-        </div>
-      `;
-      }
-
-      // DESKTOP: Full content with all features
       return `
       <div class="${styles.locationCard}" data-location-id="${locationId}">
         <div class="${styles.locationHeader}" data-draggable="true">
           <div class="${styles.dragHandle}">⋮⋮</div>
           <h3>${locationName}</h3>
-          <button class="${styles.popupCloseButton}" onclick="this.closest('.mapboxgl-popup').remove()" aria-label="Close popup">×</button>
-          <div class="${styles.locationBadge} ${isPremium ? styles.premiumBadge : styles.regularBadge}">
+          <button class="${
+            styles.popupCloseButton
+          }" onclick="this.closest('.mapboxgl-popup').remove()" aria-label="Close popup">×</button>
+          <div class="${styles.locationBadge} ${
+        isPremium ? styles.premiumBadge : styles.regularBadge
+      }">
             ${isPremium ? t("location.premium") : t("location.schoolName")}
           </div>
-          ${isPremium ? `<div class="${styles.premiumDescription}">${premiumDescription}</div>` : ""}
+          ${
+            isPremium
+              ? `
+            <div class="${styles.premiumDescription}">
+              ${premiumDescription}
+            </div>
+          `
+              : ""
+          }
         </div>
         
         <div class="${styles.locationContent}">
           <div class="${styles.locationInfo}">
             <h4>${t("location.address")}</h4>
-            <p><a href="https://maps.google.com/?q=${encodeURIComponent(fullAddress)}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: none;">${fullAddress}</a></p>
+            <p><a href="https://maps.google.com/?q=${encodeURIComponent(
+              fullAddress
+            )}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: none;">${fullAddress}</a></p>
           </div>
 
           <div class="${styles.locationInfo}">
@@ -498,21 +463,37 @@ const Component = () => {
 
           <div class="${styles.locationInfo}">
             <h4>${t("location.phone")}</h4>
-            <p>${phoneDigits ? `<a href="tel:${phoneDigits}" style="color: #007bff; text-decoration: none;">${formattedPhone}</a>` : formattedPhone}</p>
+            <p>${
+              phoneDigits
+                ? `<a href="tel:${phoneDigits}" style="color: #007bff; text-decoration: none;">${formattedPhone}</a>`
+                : formattedPhone
+            }</p>
           </div>
 
-          ${email ? `
+          ${
+            email
+              ? `
           <div class="${styles.locationInfo}">
             <h4>${t("location.email")}</h4>
             <p><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></p>
-          </div>` : ""}
+          </div>
+          `
+              : ""
+          }
           
-          ${website ? `
+          ${
+            website
+              ? `
           <div class="${styles.locationLinks}">
-            <a href="${website}" target="_blank" rel="noopener noreferrer" class="${styles.actionButton}">
+            <a href="${website}" target="_blank" rel="noopener noreferrer" class="${
+                  styles.actionButton
+                }">
               ${t("location.visitWebsite")}
             </a>
-          </div>` : ""}
+          </div>
+          `
+              : ""
+          }
         </div>
       </div>
     `;
@@ -552,67 +533,91 @@ const Component = () => {
 
   const openPopup = useCallback(
     (popup, coordinates, locationId, locationData) => {
+      // Enhanced validation and error handling for mobile stability
       if (!locationData || !coordinates || !mapInstance.current) {
+        console.warn('Missing required data for popup:', { locationData: !!locationData, coordinates: !!coordinates, mapInstance: !!mapInstance.current });
         return;
       }
 
-      // First, close all existing popups
-      closeAllPopups();
-
       try {
-        // MOBILE OPTIMIZATION: Detect mobile device
-        const isMobileDevice = window.innerWidth <= 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        
-        // Create and open new popup with mobile-optimized settings
-        const newPopup = new mapboxgl.Popup({
-          closeButton: false, // Use custom close button instead
-          maxWidth: isMobileDevice ? "90vw" : "600px", // Narrower on mobile
-          closeOnClick: false,
-          // No offset - use default Mapbox positioning for perfect pin alignment
-        });
+        // Close existing popups safely
+        closeAllPopups();
 
-        const content = createLocationPopupContent(locationData);
-        if (!content) {
+        // Validate coordinates format
+        if (!Array.isArray(coordinates) || coordinates.length !== 2 ||
+            typeof coordinates[0] !== 'number' || typeof coordinates[1] !== 'number') {
+          console.error('Invalid coordinates format:', coordinates);
           return;
         }
 
+        // Create popup with mobile-friendly settings
+        const newPopup = new mapboxgl.Popup({
+          closeButton: false,
+          maxWidth: isMobile ? "95vw" : "600px",
+          closeOnClick: false,
+          className: isMobile ? 'mobile-popup' : '',
+          anchor: 'bottom'
+        });
+
+        // Generate content safely
+        const content = createLocationPopupContent(locationData);
+        if (!content || typeof content !== 'string') {
+          console.error('Failed to generate popup content');
+          return;
+        }
+
+        // Add popup to map
         newPopup
           .setLngLat(coordinates)
           .setHTML(content)
           .addTo(mapInstance.current);
 
-        // Only add drag functionality on desktop (not mobile)
-        if (!isMobileDevice) {
+        // Add drag functionality only on desktop (causes issues on mobile)
+        if (!isMobile) {
           setTimeout(() => {
-            const popupElement = newPopup.getElement();
-            if (popupElement) {
-              const popupContent = popupElement.querySelector(
-                ".mapboxgl-popup-content"
-              );
-              if (popupContent) {
-                makePopupDraggable(popupContent, newPopup);
+            try {
+              const popupElement = newPopup.getElement();
+              if (popupElement) {
+                const popupContent = popupElement.querySelector(".mapboxgl-popup-content");
+                if (popupContent) {
+                  makePopupDraggable(popupContent, newPopup);
+                }
               }
+            } catch (error) {
+              console.warn('Failed to add popup drag functionality:', error);
             }
           }, 100);
         }
 
-        // Set up close handler
+        // Set up close handler with error handling
         newPopup.on("close", () => {
-          setActivePopup(null);
-          setActiveCard(null);
-          setShowLocationDetails(false);
+          try {
+            setActivePopup(null);
+            setActiveCard(null);
+            setShowLocationDetails(false);
+          } catch (error) {
+            console.warn('Error in popup close handler:', error);
+          }
         });
 
-        // Update states
+        // Update states safely
         setActivePopup(newPopup);
         setActiveCard(locationId);
         setShowLocationDetails(true);
+
       } catch (error) {
         console.error("Error opening popup:", error);
-        // Prevent crash on mobile - fail silently
+        // Clean up any partial state on error
+        try {
+          setActivePopup(null);
+          setActiveCard(null);
+          setShowLocationDetails(false);
+        } catch (cleanupError) {
+          console.error('Error during popup cleanup:', cleanupError);
+        }
       }
     },
-    [mapInstance, createLocationPopupContent, closeAllPopups]
+    [mapInstance, createLocationPopupContent, closeAllPopups, isMobile]
   );
 
   // Update batchGeocodeLocations to use the correct field IDs
@@ -1201,10 +1206,8 @@ const Component = () => {
       }
 
       // Create markers in batches to prevent overwhelming the browser
-      // MOBILE OPTIMIZATION: Much smaller batch size for mobile devices
-      const isMobileDevice = window.innerWidth <= 768 || 'ontouchstart' in window;
-      const BATCH_SIZE = isMobileDevice ? 20 : 100; // 20 for mobile, 100 for desktop
-      const BATCH_DELAY = isMobileDevice ? 50 : 0; // Add delay between batches on mobile
+      // Use smaller batches on mobile to prevent crashes
+      const BATCH_SIZE = isMobile ? 25 : 100; // Create fewer markers at a time on mobile
       let currentBatch = 0;
 
       const createMarkerBatch = () => {
@@ -1217,90 +1220,120 @@ const Component = () => {
           const location = locationsWithIds[i];
 
           if (location.coordinates && location.coordinates.length === 2) {
-            try {
-              const isPremium = location.fields[IS_PREMIUM_FIELD_ID];
-              const marker = new mapboxgl.Marker({
-                color: isPremium ? "#FFD700" : "#FF0000",
-                scale: isPremium ? 1.2 : 1,
-              })
-                .setLngLat(location.coordinates)
-                .addTo(mapInstance.current);
+            const isPremium = location.fields[IS_PREMIUM_FIELD_ID];
+            const marker = new mapboxgl.Marker({
+              color: isPremium ? "#FFD700" : "#FF0000",
+              scale: isPremium ? 1.2 : 1,
+            })
+              .setLngLat(location.coordinates)
+              .addTo(mapInstance.current);
 
-              const uniqueId = location.uniqueId;
+            const uniqueId = location.uniqueId;
 
-              // Store marker for proper cleanup
-              markersRef.current.push(marker);
+            // Store marker for proper cleanup
+            markersRef.current.push(marker);
 
-              // Create click handler with proper cleanup tracking
-              const handleMarkerClick = (e) => {
-                try {
-                  e.stopPropagation();
+            // Create click handler with enhanced error handling for mobile stability
+            const handleMarkerClick = (e) => {
+              // Prevent event propagation and default behavior
+              if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+              }
 
-                  console.log('[Marker Click] Clicked marker for:', uniqueId);
+              console.log('[Marker Click] Clicked marker for:', uniqueId);
 
-                  // Close any existing popups first
-                  closeAllPopups();
-
-                  // MOBILE OPTIMIZATION: Simplified popup for mobile
-                  const popup = new mapboxgl.Popup({
-                    closeButton: false,
-                    maxWidth: isMobileDevice ? "90vw" : "600px",
-                    closeOnClick: false,
-                  });
-
-                  const content = createLocationPopupContent(location);
-                  if (content) {
-                    popup
-                      .setLngLat(location.coordinates)
-                      .setHTML(content)
-                      .addTo(mapInstance.current);
-
-                    // Only add drag functionality on desktop
-                    if (!isMobileDevice) {
-                      setTimeout(() => {
-                        const popupElement = popup.getElement();
-                        if (popupElement) {
-                          const popupContent = popupElement.querySelector(
-                            ".mapboxgl-popup-content"
-                          );
-                          if (popupContent) {
-                            makePopupDraggable(popupContent, popup);
-                          }
-                        }
-                      }, 100);
-                    }
-
-                    // Set up close handler and store popup reference
-                    popup.on("close", () => {
-                      setActivePopup(null);
-                      setActiveCard(null);
-                      setShowLocationDetails(false);
-                    });
-
-                    // Update states
-                    setActivePopup(popup);
-                    setActiveCard(uniqueId);
-                    setShowLocationDetails(true);
-                  }
-                } catch (popupError) {
-                  console.error('[Marker Click] Error creating popup:', popupError);
-                  // Prevent crash - fail silently
+              try {
+                // Prevent clicks while locations are still being processed
+                if (loading || isInitialLoading) {
+                  console.log('[Marker Click] Blocked click - still loading');
+                  return;
                 }
-              };
 
-              // Add event listener and track for cleanup
-              const element = marker.getElement();
-              element.addEventListener("click", handleMarkerClick);
-              markerEventHandlersRef.current.set(marker, {
-                element,
-                handler: handleMarkerClick
-              });
+                // Close any existing popups first
+                closeAllPopups();
 
-              element.setAttribute("data-location-id", uniqueId);
-            } catch (markerError) {
-              console.error('[createMarkerBatch] Error creating marker:', markerError);
-              // Continue with next marker
-            }
+                // Validate location data
+                if (!location || !location.coordinates || !Array.isArray(location.coordinates)) {
+                  console.error('[Marker Click] Invalid location data:', location);
+                  return;
+                }
+
+                // Create and open popup with mobile-friendly settings
+                const popup = new mapboxgl.Popup({
+                  closeButton: false,
+                  maxWidth: isMobile ? "95vw" : "600px",
+                  closeOnClick: false,
+                  className: isMobile ? 'mobile-popup' : '',
+                  anchor: 'bottom'
+                });
+
+                const content = createLocationPopupContent(location);
+                if (!content) {
+                  console.error('[Marker Click] Failed to generate popup content');
+                  return;
+                }
+
+                popup
+                  .setLngLat(location.coordinates)
+                  .setHTML(content)
+                  .addTo(mapInstance.current);
+
+                // Add drag functionality only on desktop
+                if (!isMobile) {
+                  setTimeout(() => {
+                    try {
+                      const popupElement = popup.getElement();
+                      if (popupElement) {
+                        const popupContent = popupElement.querySelector(".mapboxgl-popup-content");
+                        if (popupContent) {
+                          makePopupDraggable(popupContent, popup);
+                        }
+                      }
+                    } catch (error) {
+                      console.warn('[Marker Click] Failed to add drag functionality:', error);
+                    }
+                  }, 100);
+                }
+
+                // Set up close handler with error handling
+                popup.on("close", () => {
+                  try {
+                    setActivePopup(null);
+                    setActiveCard(null);
+                    setShowLocationDetails(false);
+                  } catch (error) {
+                    console.warn('[Marker Click] Error in popup close handler:', error);
+                  }
+                });
+
+                // Update states safely
+                setActivePopup(popup);
+                setActiveCard(uniqueId);
+                setShowLocationDetails(true);
+
+              } catch (error) {
+                console.error('[Marker Click] Error handling marker click:', error);
+                // Clean up any partial state on error
+                try {
+                  setActivePopup(null);
+                  setActiveCard(null);
+                  setShowLocationDetails(false);
+                } catch (cleanupError) {
+                  console.error('[Marker Click] Error during cleanup:', cleanupError);
+                }
+              }
+            };
+
+            // Add event listener and track for cleanup
+            const element = marker.getElement();
+            element.addEventListener("click", handleMarkerClick);
+            markerEventHandlersRef.current.set(marker, {
+              element,
+              handler: handleMarkerClick
+            });
+
+            element.setAttribute("data-location-id", uniqueId);
           }
         }
 
@@ -1308,12 +1341,7 @@ const Component = () => {
 
         // Continue creating markers in next batch if there are more
         if (currentBatch * BATCH_SIZE < locationsWithIds.length) {
-          // Add delay on mobile to prevent overwhelming the browser
-          if (isMobileDevice && BATCH_DELAY > 0) {
-            setTimeout(() => requestAnimationFrame(createMarkerBatch), BATCH_DELAY);
-          } else {
-            requestAnimationFrame(createMarkerBatch);
-          }
+          requestAnimationFrame(createMarkerBatch);
         } else {
           console.log(`[createMarkerBatch] Finished creating all ${markersRef.current.length} markers`);
         }
@@ -1398,45 +1426,65 @@ const Component = () => {
 
       let searchCoords;
       let centerLocation;
+      let fuzzyTextResults = null;
 
       if (typeof addressOrCoords === "string") {
         const trimmedAddress = addressOrCoords.trim().toLowerCase();
         if (!trimmedAddress) return;
 
         try {
-          // First try to find a direct match in our Airtable locations
-          const directMatch = geocodedLocations.find((loc) => {
-            // Safely get and convert fields to lowercase strings
-            const locationName =
-              typeof loc.fields[ADDRESS_FIELD_ID] === "string"
-                ? loc.fields[ADDRESS_FIELD_ID].toLowerCase()
-                : "";
+          // Normalize text for fuzzy matching: remove accents, replace punctuation with spaces
+          const normalizeText = (text) =>
+            (text || "")
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .replace(/[-_,./()'"]/g, " ")
+              .replace(/\s+/g, " ")
+              .trim();
 
-            const address =
-              typeof loc.fields[ADDRESS_FIELD_ID] === "string"
-                ? loc.fields[ADDRESS_FIELD_ID].toLowerCase()
-                : "";
+          // Tokenize search query
+          const searchTokens = normalizeText(trimmedAddress).split(" ").filter(Boolean);
 
-            const geoAddress =
-              typeof loc.fields[ADDRESS_FIELD_ID] === "string"
-                ? loc.fields[ADDRESS_FIELD_ID].toLowerCase()
-                : "";
+          if (searchTokens.length > 0) {
+            // Score each location by matching tokens against multiple fields
+            const scoredMatches = geocodedLocations
+              .map((loc) => {
+                const fields = loc.fields || {};
+                const searchableText = normalizeText(
+                  [
+                    fields[SCHOOL_FIELD_ID],
+                    fields[ADDRESS_FIELD_ID],
+                    fields[SCHOOL_ADDRESS_FIELD_ID],
+                    fields[COUNTRY_FIELD_ID],
+                  ].filter(Boolean).join(" ")
+                );
 
-            const searchTerm = trimmedAddress || "";
+                const matchedTokens = searchTokens.filter((token) =>
+                  searchableText.includes(token)
+                );
 
-            return (
-              locationName.includes(searchTerm) ||
-              address.includes(searchTerm) ||
-              geoAddress.includes(searchTerm)
-            );
-          });
+                return {
+                  location: loc,
+                  matchCount: matchedTokens.length,
+                  matchRatio: matchedTokens.length / searchTokens.length,
+                };
+              })
+              .filter((item) => item.matchRatio >= 0.5)
+              .sort((a, b) => b.matchRatio - a.matchRatio || b.matchCount - a.matchCount);
 
-          if (directMatch && directMatch.coordinates) {
-            // We found a matching location in our database
-            searchCoords = directMatch.coordinates;
-            centerLocation = directMatch;
-          } else {
-            // If no direct match, use server-side geocoding API
+            if (scoredMatches.length > 0) {
+              const bestMatch = scoredMatches[0].location;
+              if (bestMatch.coordinates) {
+                searchCoords = bestMatch.coordinates;
+                centerLocation = bestMatch;
+                fuzzyTextResults = scoredMatches.map((m) => m.location);
+              }
+            }
+          }
+
+          // Fall back to geocoding if no text matches found
+          if (!searchCoords) {
             const response = await fetch('/api/geocode', {
               method: 'POST',
               headers: {
@@ -1490,11 +1538,15 @@ const Component = () => {
         return;
       }
 
-      // Process results - show all locations within radius of the found location
+      // Process results - show fuzzy text matches or locations within radius
+      const locationsToShow = fuzzyTextResults || geocodedLocations;
       const bounds = new mapboxgl.LngLatBounds();
-      const results = geocodedLocations
+      const results = locationsToShow
         .filter((location) => {
           if (!location?.coordinates) return false;
+          // For fuzzy text matches, show all results (no radius limit)
+          if (fuzzyTextResults) return true;
+          // For geographic search, apply radius filter
           const distance = haversineDistance(
             searchCoords,
             location.coordinates
@@ -1669,10 +1721,7 @@ const Component = () => {
     ]
   );
 
-  // Debounce click handler to prevent rapid clicks on mobile
-  const clickDebounceRef = useRef(null);
-  
-  // Update the result item click handler with debouncing
+  // Update the result item click handler
   const handleResultItemClick = useCallback(
     (location, event) => {
       try {
@@ -1685,21 +1734,6 @@ const Component = () => {
           }
           return;
         }
-
-        // MOBILE OPTIMIZATION: Debounce clicks to prevent rapid taps
-        if (clickDebounceRef.current) {
-          console.log('[handleResultItemClick] Blocked click - debouncing');
-          if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-          return;
-        }
-
-        // Set debounce timer (300ms)
-        clickDebounceRef.current = setTimeout(() => {
-          clickDebounceRef.current = null;
-        }, 300);
 
         // Prevent default behavior and event propagation
         if (event) {
@@ -1717,7 +1751,7 @@ const Component = () => {
         }
       } catch (error) {
         console.error("Error in handleResultItemClick:", error);
-        // Prevent crash on mobile - fail silently
+        // Prevent crash on mobile
       }
     },
     [handleLocationSelect, isMobile, isInIframe, isSidebarCollapsed, loading, isInitialLoading]
@@ -2157,51 +2191,55 @@ const Component = () => {
     };
   }, []);
 
-  // Touch handling for mobile sidebar
-  const handleTouchStart = (e) => {
+  // Simplified touch handling for mobile sidebar - prevent crashes
+  const handleTouchStart = useCallback((e) => {
     if (!isMobile && !isInIframe) return;
-    setTouchStartY(e.touches[0].clientY);
-    setTouchStartX(e.touches[0].clientX);
-    setIsDragging(false);
-  };
+    try {
+      setTouchStartY(e.touches[0]?.clientY || 0);
+      setTouchStartX(e.touches[0]?.clientX || 0);
+      setIsDragging(false);
+    } catch (error) {
+      console.warn('Touch start error:', error);
+    }
+  }, [isMobile, isInIframe]);
 
-  const handleTouchMove = (e) => {
-    if (!isMobile && !isInIframe) return;
+  const handleTouchMove = useCallback((e) => {
+    if (!isMobile && !isInIframe || !e.touches?.[0]) return;
 
-    // Note: Cannot use e.preventDefault() with React's passive touch events
-    // Using CSS touch-action instead to control scrolling behavior
+    try {
+      const touchY = e.touches[0].clientY;
+      const touchX = e.touches[0].clientX;
+      const deltaY = touchY - touchStartY;
+      const deltaX = Math.abs(touchX - touchStartX);
 
-    const touchY = e.touches[0].clientY;
-    const touchX = e.touches[0].clientX;
-    const deltaY = touchY - touchStartY;
-    const deltaX = Math.abs(touchX - touchStartX);
+      // Only handle vertical swipes with significant movement
+      if (deltaX > 30 || Math.abs(deltaY) < 20) return;
 
-    // Only handle vertical swipes
-    if (deltaX > 30) return;
-
-    // Start dragging if movement is significant
-    if (Math.abs(deltaY) > 10) {
       setIsDragging(true);
-    }
 
-    // Swipe down to collapse sidebar
-    if (deltaY > 100 && !isSidebarCollapsed) {
-      setIsSidebarCollapsed(true);
+      // Simple swipe gestures - avoid complex logic that can crash
+      if (deltaY > 80 && !isSidebarCollapsed) {
+        setIsSidebarCollapsed(true);
+        setIsDragging(false);
+        safeStorage.setItem("gb-map-user-interacted", "true");
+      } else if (deltaY < -80 && isSidebarCollapsed) {
+        setIsSidebarCollapsed(false);
+        setIsDragging(false);
+      }
+    } catch (error) {
+      console.warn('Touch move error:', error);
       setIsDragging(false);
-      // Mark as user interaction
-      localStorage.setItem("gb-map-user-interacted", "true");
     }
-    // Swipe up to expand sidebar
-    else if (deltaY < -100 && isSidebarCollapsed) {
-      setIsSidebarCollapsed(false);
-      setIsDragging(false);
-    }
-  };
+  }, [isMobile, isInIframe, touchStartY, touchStartX, isSidebarCollapsed]);
 
-  const handleTouchEnd = (e) => {
+  const handleTouchEnd = useCallback((e) => {
     if (!isMobile && !isInIframe) return;
-    setIsDragging(false);
-  };
+    try {
+      setIsDragging(false);
+    } catch (error) {
+      console.warn('Touch end error:', error);
+    }
+  }, [isMobile, isInIframe]);
 
   // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
