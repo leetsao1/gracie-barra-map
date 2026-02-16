@@ -1398,6 +1398,8 @@ const Component = () => {
           const searchTokens = normalizeText(trimmedAddress).split(" ").filter(Boolean);
 
           if (searchTokens.length > 0) {
+            // Yield to browser before CPU-intensive scoring
+            await new Promise((resolve) => setTimeout(resolve, 0));
             // Score each location by matching tokens against multiple fields
             const scoredMatches = geocodedLocations
               .map((loc) => {
@@ -1883,6 +1885,8 @@ const Component = () => {
 
   const handleSearch = async () => {
     setSearchStatus(t("status.searching"));
+    // Yield to browser so the UI can paint "Searching..." before heavy work
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     try {
       const results = await runSearch(searchQuery, 50, premiumFilter);
       const resultCount = results ? results.length : 0;
