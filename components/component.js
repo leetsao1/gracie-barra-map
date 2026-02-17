@@ -1422,31 +1422,39 @@ const Component = () => {
           if (searchTokens.length > 0) {
             // Yield to browser before CPU-intensive scoring
             await new Promise((resolve) => setTimeout(resolve, 0));
-            // Score each location by matching tokens against multiple fields
+            // Score each location with weighted field matching
+            // Priority: School Name (highest) > Address > Country (lowest)
             const scoredMatches = geocodedLocations
               .map((loc) => {
                 const fields = loc.fields || {};
-                const searchableText = normalizeText(
-                  [
-                    fields[SCHOOL_FIELD_ID],
-                    fields[ADDRESS_FIELD_ID],
-                    fields[SCHOOL_ADDRESS_FIELD_ID],
-                    fields[COUNTRY_FIELD_ID],
-                  ].filter(Boolean).join(" ")
-                );
 
-                const matchedTokens = searchTokens.filter((token) =>
-                  searchableText.includes(token)
+                // Normalize fields separately for weighted scoring
+                const schoolName = normalizeText(
+                  [fields[GB_NAME_FIELD_ID], fields[SCHOOL_FIELD_ID]].filter(Boolean).join(" ")
                 );
+                const address = normalizeText(
+                  [fields[ADDRESS_FIELD_ID], fields[SCHOOL_ADDRESS_FIELD_ID]].filter(Boolean).join(" ")
+                );
+                const country = normalizeText(fields[COUNTRY_FIELD_ID] || "");
+                const allText = [schoolName, address, country].join(" ");
+
+                // Count tokens matching each field
+                const nameMatches = searchTokens.filter((token) => schoolName.includes(token));
+                const allMatches = searchTokens.filter((token) => allText.includes(token));
 
                 return {
                   location: loc,
-                  matchCount: matchedTokens.length,
-                  matchRatio: matchedTokens.length / searchTokens.length,
+                  nameMatchRatio: nameMatches.length / searchTokens.length,
+                  matchCount: allMatches.length,
+                  matchRatio: allMatches.length / searchTokens.length,
                 };
               })
               .filter((item) => item.matchRatio >= 0.5)
-              .sort((a, b) => b.matchRatio - a.matchRatio || b.matchCount - a.matchCount);
+              .sort((a, b) =>
+                b.nameMatchRatio - a.nameMatchRatio ||
+                b.matchRatio - a.matchRatio ||
+                b.matchCount - a.matchCount
+              );
 
             if (scoredMatches.length > 0) {
               const bestMatch = scoredMatches[0].location;
